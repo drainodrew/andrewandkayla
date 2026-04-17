@@ -1,0 +1,52 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+/node_modules
+/.pnp
+.pnp.*
+.yarn/*
+!.yarn/patches
+!.yarn/plugins
+!.yarn/releases
+!.yarn/versions
+
+# testing
+/coverage
+
+# next.js
+/.next/
+/out/
+
+# production
+/build
+
+# misc
+.DS_Store
+*.pem
+
+# debug
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# env files (secrets live here, never commit)
+.env
+.env.local
+.env*.local
+
+# DO commit .env.example (it has no secrets, just docs)
+
+# wedding planning files (not code, keep local)
+*.pdf
+invite-addresses.csv
+scripts/wedding_invite_list.csv
+scripts/parsed_*_preview.csv
+functionality reference photos/
+
+# vercel
+.vercel
+
+# typescript
+*.tsbuildinfo
+next-env.d.ts
