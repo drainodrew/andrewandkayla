@@ -61,10 +61,6 @@ export default function Home() {
           Belle Meade Mansion &middot; Nashville, Tennessee
         </p>
 
-        <div className="mb-8">
-          <Countdown targetDate="2026-08-29T17:00:00-05:00" />
-        </div>
-
         <Link
           href="/rsvp"
           className="inline-block rounded-lg bg-pink px-8 py-3 font-medium text-dark transition-colors hover:bg-pink/80 focus:outline-none focus:ring-2 focus:ring-sage"
@@ -75,6 +71,10 @@ export default function Home() {
         {/* Photo placeholder */}
         <div className="mx-auto mt-12 max-w-2xl aspect-[16/10] rounded-2xl bg-sage/10 border-2 border-dashed border-sage/30 flex items-center justify-center">
           <p className="text-dark/30 text-sm">Photo coming soon</p>
+        </div>
+
+        <div className="mt-10">
+          <Countdown targetDate="2026-08-29T17:00:00-05:00" />
         </div>
       </section>
 
