@@ -49,9 +49,9 @@ function Countdown({ targetDate }: { targetDate: string }) {
 export default function Home() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-16">
-      {/* Hero */}
-      <section className="text-center mb-16">
-        <h1 className="text-5xl font-heading text-deep-sage mb-4">
+      {/* Hero - full viewport height, accounts for nav */}
+      <section className="min-h-[calc(100vh-73px)] flex flex-col items-center justify-center text-center mb-16 -mt-16 pt-16">
+        <h1 className="text-5xl sm:text-6xl font-heading text-deep-sage mb-4">
           Andrew & Kayla
         </h1>
         <p className="text-lg text-dark/80 mb-2">
@@ -61,21 +61,21 @@ export default function Home() {
           Belle Meade Mansion &middot; Nashville, Tennessee
         </p>
 
-        <Link
-          href="/rsvp"
-          className="inline-block rounded-lg bg-pink px-8 py-3 font-medium text-dark transition-colors hover:bg-pink/80 focus:outline-none focus:ring-2 focus:ring-sage"
-        >
-          RSVP Now
-        </Link>
-
         {/* Photo placeholder */}
-        <div className="mx-auto mt-12 max-w-2xl aspect-[16/10] rounded-2xl bg-sage/10 border-2 border-dashed border-sage/30 flex items-center justify-center">
+        <div className="w-full max-w-2xl aspect-[16/10] rounded-2xl bg-sage/10 border-2 border-dashed border-sage/30 flex items-center justify-center">
           <p className="text-dark/30 text-sm">Photo coming soon</p>
         </div>
 
-        <div className="mt-10">
+        <div className="mt-8">
           <Countdown targetDate="2026-08-29T17:00:00-05:00" />
         </div>
+
+        <Link
+          href="/rsvp"
+          className="mt-8 inline-block rounded-lg bg-pink px-8 py-3 font-medium text-dark transition-colors hover:bg-pink/80 focus:outline-none focus:ring-2 focus:ring-sage"
+        >
+          RSVP Now
+        </Link>
       </section>
 
       {/* Our Story */}
