@@ -76,7 +76,7 @@ const NAME_OVERRIDES: Record<
     { firstName: "Matthew", lastName: "Moore" },
     { firstName: "Mary", lastName: "Moore" },
     { firstName: "Keagan", lastName: "Moore" },
-    { firstName: "Madelyn", lastName: "Moore" },
+    { firstName: "Madeleine", lastName: "Moore" },
   ],
   "The McGuire Family": [
     { firstName: "Annie", lastName: "McGuire" },
