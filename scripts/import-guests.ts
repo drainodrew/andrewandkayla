@@ -91,12 +91,19 @@ const NAME_OVERRIDES: Record<
     { firstName: "Luke", lastName: "Schenkel" },
     { firstName: "AnnaClaire", lastName: "Schenkel" },
   ],
-  // Partial list; more members may be added directly in Supabase
   "The Meyer Family": [
     { firstName: "Nick", lastName: "Meyer" },
     { firstName: "Karen", lastName: "Meyer" },
     { firstName: "Sonia", lastName: "Meyer" },
     { firstName: "Ellie", lastName: "Meyer" },
+    { firstName: "Nina", lastName: "Meyer" },
+  ],
+  // Tina & Tony's kids are part of their party
+  "Tina & Tony Myers": [
+    { firstName: "Tina", lastName: "Myers" },
+    { firstName: "Tony", lastName: "Myers" },
+    { firstName: "Knox", lastName: "Myers" },
+    { firstName: "Emmylayne", lastName: "Myers" },
   ],
   // Venezuelan double surname; generic splitter can't handle this
   "Victor Zambrano Zambrano": [
@@ -385,10 +392,7 @@ function main() {
     }
   }
 
-  console.log(
-    "\nNote: Meyer Family may be incomplete (Nick, Karen, Sonia, Ellie). " +
-      "Add remaining members directly in Supabase if needed."
-  );
+  console.log("\nAll families resolved. Ready to load.");
   console.log(`\nReview both CSVs before running load-guests.ts.`);
 }
 

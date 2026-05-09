@@ -10,7 +10,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "import-guests": "npx tsx scripts/import-guests.ts"
+    "import-guests": "npx tsx scripts/import-guests.ts",
+    "load-guests": "npx tsx scripts/load-guests.ts"
   },
   "dependencies": {
     "@supabase/ssr": "^0.10.2",
