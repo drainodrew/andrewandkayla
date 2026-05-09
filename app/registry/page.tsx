@@ -1,89 +1,122 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
+import {
+  getRegistryItems,
+  claimItem,
+  confirmPurchase,
+  releaseItem,
+} from "@/lib/actions/registry";
 
 interface RegistryItem {
   id: string;
   name: string;
-  description: string;
-  price: string;
-  merchantName: string;
-  merchantUrl: string;
-  imagePath: string;
-  category: string;
+  description: string | null;
+  price_cents: number | null;
+  merchant_name: string | null;
+  merchant_url: string | null;
+  image_url: string | null;
+  status: "available" | "pending" | "purchased";
+  sort_order: number | null;
+  claimed_by_me: boolean;
 }
 
-// Placeholder items until the real registry_items table is populated
-const REGISTRY_ITEMS: RegistryItem[] = [
-  {
-    id: "working-glass",
-    name: "Large 21 oz. Working Glass with Lid",
-    description:
-      "The everyday glass. Great for iced coffee, smoothies, or just water. Comes with a lid for on the go.",
-    price: "$13.95",
-    merchantName: "Crate & Barrel",
-    merchantUrl:
-      "https://www.crateandbarrel.com/large-21-oz.-working-glass-with-lid/s485145",
-    imagePath: "/images/registry/working-glass.jpg",
-    category: "Kitchen",
-  },
-  {
-    id: "atwell-highball",
-    name: "Atwell 16 oz. Stackable Ribbed Highball Glass",
-    description:
-      "Beautiful ribbed texture, stackable for easy storage. Perfect for cocktails or sparkling water.",
-    price: "$8.95",
-    merchantName: "Crate & Barrel",
-    merchantUrl:
-      "https://www.crateandbarrel.com/atwell-16-oz.-stackable-ribbed-highball-glass/s202062",
-    imagePath: "/images/registry/atwell-highball.jpg",
-    category: "Kitchen",
-  },
-  {
-    id: "eight-sleep-pod5",
-    name: "Eight Sleep Pod 5",
-    description:
-      "The smart mattress cover that heats, cools, and tracks your sleep. We are obsessed with ours and would love an upgrade to the Pod 5.",
-    price: "$2,849+",
-    merchantName: "Eight Sleep",
-    merchantUrl: "https://www.eightsleep.com/product/the-cover/",
-    imagePath: "/images/registry/eight-sleep-pod5.png",
-    category: "Home",
-  },
-  {
-    id: "honeymoon-fund",
-    name: "Honeymoon Fund",
-    description:
-      "Help us make some memories. We're planning a trip after the wedding and any contribution means the world to us.",
-    price: "Any amount",
-    merchantName: "",
-    merchantUrl: "",
-    imagePath: "",
-    category: "Experiences",
-  },
-];
+type SortOption = "default" | "price-low" | "price-high";
 
-function RegistryCard({ item }: { item: RegistryItem }) {
+function formatPrice(cents: number | null): string {
+  if (!cents) return "";
+  return `$${(cents / 100).toLocaleString("en-US", { minimumFractionDigits: cents % 100 === 0 ? 0 : 2 })}`;
+}
+
+function ConfirmModal({
+  itemName,
+  onConfirm,
+  onCancel,
+  isLoading,
+}: {
+  itemName: string;
+  onConfirm: () => void;
+  onCancel: () => void;
+  isLoading: boolean;
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-dark/40 backdrop-blur-sm"
+        onClick={onCancel}
+      />
+      <div className="relative bg-white rounded-2xl p-8 max-w-md w-full shadow-xl">
+        <h3 className="text-xl font-heading text-deep-sage mb-3">
+          Did you buy it?
+        </h3>
+        <p className="text-sm text-dark/70 mb-6">
+          Did you purchase the <strong>{itemName}</strong>? This helps us avoid
+          duplicate gifts.
+        </p>
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={onConfirm}
+            disabled={isLoading}
+            className="flex-1 rounded-lg bg-pink px-5 py-3 text-sm font-medium text-dark transition-colors hover:bg-pink/80 disabled:opacity-50"
+          >
+            {isLoading ? "Saving..." : "Yes, I bought it!"}
+          </button>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isLoading}
+            className="flex-1 rounded-lg border border-sage/40 px-5 py-3 text-sm font-medium text-dark/70 transition-colors hover:bg-sage/10 disabled:opacity-50"
+          >
+            No, not yet
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RegistryCard({
+  item,
+  onClaim,
+  onReturn,
+}: {
+  item: RegistryItem;
+  onClaim: (id: string) => void;
+  onReturn: (id: string) => void;
+}) {
   const [isHovered, setIsHovered] = useState(false);
-
-  const isHoneymoon = item.id === "honeymoon-fund";
+  const isPurchased = item.status === "purchased";
+  const isPendingByMe = item.status === "pending" && item.claimed_by_me;
+  const isPendingByOther = item.status === "pending" && !item.claimed_by_me;
 
   return (
     <div
-      className="group relative rounded-2xl border border-sage/20 bg-white overflow-hidden transition-all duration-300 hover:shadow-lg hover:border-pink/40"
+      className={`group relative rounded-2xl border bg-white overflow-hidden transition-all duration-300 ${
+        isPurchased
+          ? "border-sage/20 opacity-60"
+          : "border-sage/20 hover:shadow-lg hover:border-pink/40"
+      }`}
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
+      {/* Purchased badge */}
+      {isPurchased && (
+        <div className="absolute top-4 right-4 z-10 rounded-full bg-sage/80 px-3 py-1 text-xs font-medium text-white">
+          Purchased
+        </div>
+      )}
+
       {/* Image */}
       <div className="relative aspect-square overflow-hidden bg-cream">
-        {item.imagePath ? (
+        {item.image_url ? (
           <Image
-            src={item.imagePath}
+            src={item.image_url}
             alt={item.name}
             fill
             className={`object-cover transition-transform duration-500 ${
-              isHovered ? "scale-105" : "scale-100"
+              isHovered && !isPurchased ? "scale-105" : "scale-100"
             }`}
             sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
           />
@@ -112,36 +145,44 @@ function RegistryCard({ item }: { item: RegistryItem }) {
           <h3 className="font-medium text-dark text-base leading-snug">
             {item.name}
           </h3>
-          {item.merchantName && (
-            <p className="text-xs text-dark/40 mt-1">{item.merchantName}</p>
+          {item.merchant_name && (
+            <p className="text-xs text-dark/40 mt-1">{item.merchant_name}</p>
           )}
         </div>
 
-        <p className="text-sm text-dark/60 leading-relaxed mb-4">
-          {item.description}
-        </p>
+        {item.description && (
+          <p className="text-sm text-dark/60 leading-relaxed mb-4">
+            {item.description}
+          </p>
+        )}
 
         <div className="flex items-center justify-between">
           <span className="text-lg font-medium text-deep-sage">
-            {item.price}
+            {formatPrice(item.price_cents)}
           </span>
 
-          {isHoneymoon ? (
+          {isPurchased ? (
+            <span className="text-sm text-dark/40">Thank you!</span>
+          ) : isPendingByMe ? (
             <button
               type="button"
-              className="rounded-full bg-pink px-5 py-2 text-sm font-medium text-dark transition-colors hover:bg-pink/80 focus:outline-none focus:ring-2 focus:ring-sage"
+              onClick={() => onReturn(item.id)}
+              className="rounded-full border border-sage/40 px-5 py-2 text-sm font-medium text-dark/70 transition-colors hover:bg-sage/10"
             >
-              Contribute
+              I changed my mind
             </button>
+          ) : isPendingByOther ? (
+            <span className="text-sm text-dark/40 italic">
+              Someone&apos;s on it
+            </span>
           ) : (
-            <a
-              href={item.merchantUrl}
-              target="_blank"
-              rel="noopener noreferrer"
+            <button
+              type="button"
+              onClick={() => onClaim(item.id)}
               className="rounded-full bg-pink px-5 py-2 text-sm font-medium text-dark transition-colors hover:bg-pink/80 focus:outline-none focus:ring-2 focus:ring-sage"
             >
-              View Item
-            </a>
+              I want to buy this
+            </button>
           )}
         </div>
       </div>
@@ -150,9 +191,113 @@ function RegistryCard({ item }: { item: RegistryItem }) {
 }
 
 export default function RegistryPage() {
+  const [items, setItems] = useState<RegistryItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [sortBy, setSortBy] = useState<SortOption>("default");
+  const [confirmingItem, setConfirmingItem] = useState<RegistryItem | null>(
+    null
+  );
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const loadItems = useCallback(async () => {
+    const result = await getRegistryItems();
+    if (result.error) {
+      setError(result.error);
+    } else {
+      setItems(result.items as RegistryItem[]);
+    }
+    setLoading(false);
+  }, []);
+
+  useEffect(() => {
+    loadItems();
+  }, [loadItems]);
+
+  const handleClaim = async (itemId: string) => {
+    setActionLoading(true);
+    const result = await claimItem(itemId);
+
+    if (result.error) {
+      setError(result.error);
+      setActionLoading(false);
+      return;
+    }
+
+    // Find the item and open merchant URL
+    const item = items.find((i) => i.id === itemId);
+    if (item?.merchant_url) {
+      window.open(item.merchant_url, "_blank");
+    }
+
+    // Reload items then show confirmation modal
+    await loadItems();
+    const updatedItem = items.find((i) => i.id === itemId) || item;
+    if (updatedItem) {
+      setConfirmingItem(updatedItem);
+    }
+    setActionLoading(false);
+  };
+
+  const handleConfirmPurchase = async () => {
+    if (!confirmingItem) return;
+    setActionLoading(true);
+
+    const result = await confirmPurchase(confirmingItem.id);
+    if (result.error) {
+      setError(result.error);
+    }
+
+    setConfirmingItem(null);
+    setActionLoading(false);
+    await loadItems();
+  };
+
+  const handleCancelClaim = async () => {
+    if (!confirmingItem) return;
+    setActionLoading(true);
+
+    await releaseItem(confirmingItem.id);
+    setConfirmingItem(null);
+    setActionLoading(false);
+    await loadItems();
+  };
+
+  const handleReturn = async (itemId: string) => {
+    setActionLoading(true);
+    await releaseItem(itemId);
+    setActionLoading(false);
+    await loadItems();
+  };
+
+  // Sort items: purchased always at bottom, then by sort option
+  const sortedItems = [...items].sort((a, b) => {
+    // Purchased items sink to bottom
+    if (a.status === "purchased" && b.status !== "purchased") return 1;
+    if (a.status !== "purchased" && b.status === "purchased") return -1;
+
+    if (sortBy === "price-low") {
+      return (a.price_cents || 0) - (b.price_cents || 0);
+    }
+    if (sortBy === "price-high") {
+      return (b.price_cents || 0) - (a.price_cents || 0);
+    }
+
+    // Default: sort_order
+    return (a.sort_order || 0) - (b.sort_order || 0);
+  });
+
+  if (loading) {
+    return (
+      <div className="mx-auto max-w-6xl px-4 py-16 text-center">
+        <p className="text-dark/50">Loading registry...</p>
+      </div>
+    );
+  }
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8">
-      <div className="text-center mb-16">
+      <div className="text-center mb-12">
         <h1 className="text-4xl sm:text-5xl font-heading text-deep-sage mb-4">
           Registry
         </h1>
@@ -162,18 +307,68 @@ export default function RegistryPage() {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
-        {REGISTRY_ITEMS.map((item) => (
-          <RegistryCard key={item.id} item={item} />
-        ))}
-      </div>
+      {/* Sort controls */}
+      {items.length > 0 && (
+        <div className="flex justify-end mb-6">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as SortOption)}
+            className="rounded-lg border border-sage/40 bg-white px-3 py-2 text-sm text-dark/70 focus:outline-none focus:ring-2 focus:ring-pink"
+          >
+            <option value="default">Sort by: Featured</option>
+            <option value="price-low">Price: Low to High</option>
+            <option value="price-high">Price: High to Low</option>
+          </select>
+        </div>
+      )}
+
+      {error && (
+        <div className="mb-6 rounded-lg bg-pink/10 border border-pink/30 p-4 text-center">
+          <p className="text-sm text-dark/80">{error}</p>
+          <button
+            type="button"
+            onClick={() => setError("")}
+            className="mt-1 text-xs text-dark/50 underline"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
+      {items.length === 0 ? (
+        <p className="text-center text-dark/60 py-12">
+          Registry items coming soon. Check back!
+        </p>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+          {sortedItems.map((item) => (
+            <RegistryCard
+              key={item.id}
+              item={item}
+              onClaim={handleClaim}
+              onReturn={handleReturn}
+            />
+          ))}
+        </div>
+      )}
 
       <div className="mt-20 text-center">
         <p className="text-sm text-dark/50">
-          Items link to the merchant&apos;s website. After purchasing, come back
-          and let us know so we can keep track.
+          Click &quot;I want to buy this&quot; to let us know, then purchase on
+          the merchant&apos;s site. When you come back, we&apos;ll ask if you
+          bought it so we can keep track.
         </p>
       </div>
+
+      {/* Confirmation modal */}
+      {confirmingItem && (
+        <ConfirmModal
+          itemName={confirmingItem.name}
+          onConfirm={handleConfirmPurchase}
+          onCancel={handleCancelClaim}
+          isLoading={actionLoading}
+        />
+      )}
     </div>
   );
 }
