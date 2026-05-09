@@ -1,0 +1,134 @@
+"use client";
+
+import { useState, useCallback } from "react";
+import { selectParty } from "@/lib/actions/rsvp";
+
+interface PartyResult {
+  party_id: string;
+  display_name: string;
+  party_size: number;
+}
+
+export function GuestSearch({
+  onPartySelected,
+}: {
+  onPartySelected: () => void;
+}) {
+  const [query, setQuery] = useState("");
+  const [results, setResults] = useState<PartyResult[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [error, setError] = useState("");
+  const [hasSearched, setHasSearched] = useState(false);
+
+  const search = useCallback(async (q: string) => {
+    if (q.length < 3) {
+      setResults([]);
+      setHasSearched(false);
+      return;
+    }
+
+    setIsSearching(true);
+    setError("");
+
+    try {
+      const res = await fetch(
+        `/api/guest-lookup?q=${encodeURIComponent(q)}`
+      );
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || "Search failed.");
+        setResults([]);
+      } else {
+        setResults(data.results || []);
+      }
+      setHasSearched(true);
+    } catch {
+      setError("Something went wrong. Please try again.");
+    } finally {
+      setIsSearching(false);
+    }
+  }, []);
+
+  // Debounce search on input change
+  const handleChange = (value: string) => {
+    setQuery(value);
+    if (value.length >= 3) {
+      // Simple debounce with setTimeout
+      const timeout = setTimeout(() => search(value), 300);
+      return () => clearTimeout(timeout);
+    } else {
+      setResults([]);
+      setHasSearched(false);
+    }
+  };
+
+  const handleSelect = async (partyId: string) => {
+    setIsSelecting(true);
+    const result = await selectParty(partyId);
+    if (result.error) {
+      setError(result.error);
+      setIsSelecting(false);
+    } else {
+      onPartySelected();
+    }
+  };
+
+  return (
+    <div className="mx-auto max-w-md">
+      <label htmlFor="guest-search" className="block text-sm font-medium mb-2">
+        Search for your name
+      </label>
+      <input
+        id="guest-search"
+        type="text"
+        value={query}
+        onChange={(e) => handleChange(e.target.value)}
+        placeholder="Type your first or last name..."
+        className="w-full rounded-lg border border-sage/50 bg-white px-4 py-3 text-dark placeholder:text-dark/40 focus:outline-none focus:ring-2 focus:ring-pink focus:border-transparent"
+        autoComplete="off"
+        disabled={isSelecting}
+      />
+
+      {query.length > 0 && query.length < 3 && (
+        <p className="mt-2 text-sm text-dark/50">
+          Keep typing (at least 3 characters)...
+        </p>
+      )}
+
+      {isSearching && (
+        <p className="mt-2 text-sm text-dark/50">Searching...</p>
+      )}
+
+      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+
+      {results.length > 0 && (
+        <ul className="mt-3 space-y-2">
+          {results.map((r) => (
+            <li key={r.party_id}>
+              <button
+                type="button"
+                onClick={() => handleSelect(r.party_id)}
+                disabled={isSelecting}
+                className="w-full text-left rounded-lg border border-sage/30 bg-white px-4 py-3 transition-colors hover:border-pink hover:bg-pink/5 focus:outline-none focus:ring-2 focus:ring-pink disabled:opacity-50"
+              >
+                <span className="font-medium">{r.display_name}</span>
+                <span className="ml-2 text-sm text-dark/50">
+                  (party of {r.party_size})
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {hasSearched && !isSearching && results.length === 0 && !error && (
+        <p className="mt-3 text-sm text-dark/60">
+          No results found. Try a different spelling, or contact Andrew and
+          Kayla if you think something is wrong.
+        </p>
+      )}
+    </div>
+  );
+}
