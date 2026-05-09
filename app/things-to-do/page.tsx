@@ -67,6 +67,14 @@ export default function ThingsToDoPage() {
           tip: null,
         },
         {
+          name: "Stay Golden",
+          type: "Breakfast / Brunch / Coffee",
+          proximity: "~10 min from venue",
+          description:
+            "My brother-in-law's restaurant and coffee shop in The Nations. Locally roasted coffee beans, the best biscuits in Nashville, and a great breakfast or brunch spot. This one is family, and the food speaks for itself.",
+          tip: null,
+        },
+        {
           name: "Prince's Hot Chicken",
           type: "Hot Chicken",
           proximity: "~20 min from venue",
