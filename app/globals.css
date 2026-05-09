@@ -1,5 +1,14 @@
 @import "tailwindcss";
 
+@font-face {
+  font-family: "Limerick Serial Heavy";
+  src: url("/fonts/limerick-serial-heavy.woff") format("woff"),
+       url("/fonts/limerick-serial-heavy.ttf") format("truetype");
+  font-weight: normal;
+  font-style: normal;
+  font-display: swap;
+}
+
 :root {
   --color-pink: #F8BBDB;
   --color-sage: #C5D0B3;
@@ -20,6 +29,7 @@
   --color-dark: var(--color-dark);
   --color-deep-sage: var(--color-deep-sage);
   --font-heading: var(--font-fraunces);
+  --font-hero: "Limerick Serial Heavy", serif;
   --font-body: "Helvetica Neue", Helvetica, Arial, sans-serif;
 }
 

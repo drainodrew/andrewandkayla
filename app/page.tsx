@@ -51,7 +51,10 @@ export default function Home() {
     <div className="mx-auto max-w-4xl px-4 py-16">
       {/* Hero - full viewport height, accounts for nav */}
       <section className="min-h-[calc(100vh-73px)] flex flex-col items-center justify-center text-center mb-16 -mt-16 pt-16">
-        <h1 className="text-5xl sm:text-6xl font-heading text-deep-sage mb-4">
+        <h1
+          className="text-5xl sm:text-6xl text-deep-sage mb-4"
+          style={{ fontFamily: "var(--font-hero)" }}
+        >
           Andrew & Kayla
         </h1>
         <p className="text-lg text-dark/80 mb-2">
