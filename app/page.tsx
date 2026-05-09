@@ -85,7 +85,7 @@ export default function Home() {
         </h2>
         <div className="max-w-2xl mx-auto space-y-5 text-dark/80 leading-relaxed">
           <p>
-            I had been hearing Kayla&apos;s name for years. She was Kara&apos;s
+            I heard Kayla&apos;s name for years. She was Kara&apos;s
             little sister. She was the one who demolished all of my Cutco sales
             records. But we didn&apos;t actually meet until we both moved back to
             Nashville in 2023.
