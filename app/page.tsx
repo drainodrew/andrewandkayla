@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useState } from "react";
 
 function Countdown({ targetDate }: { targetDate: string }) {
@@ -64,9 +65,15 @@ export default function Home() {
           Belle Meade Mansion &middot; Nashville, Tennessee
         </p>
 
-        {/* Photo placeholder */}
-        <div className="w-full max-w-2xl aspect-[16/10] rounded-2xl bg-sage/10 border-2 border-dashed border-sage/30 flex items-center justify-center">
-          <p className="text-dark/30 text-sm">Photo coming soon</p>
+        <div className="w-full max-w-2xl overflow-hidden rounded-2xl">
+          <Image
+            src="/images/photos/beach.jpg"
+            alt="Andrew and Kayla on the beach"
+            width={1200}
+            height={750}
+            className="w-full h-auto object-cover"
+            priority
+          />
         </div>
 
         <div className="mt-8">
@@ -102,14 +109,25 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Photo placeholder */}
       <section className="mb-20">
         <div className="grid grid-cols-2 gap-4">
-          <div className="aspect-[4/5] rounded-2xl bg-sage/10 border-2 border-dashed border-sage/30 flex items-center justify-center">
-            <p className="text-dark/30 text-sm">Photo</p>
+          <div className="aspect-[4/5] overflow-hidden rounded-2xl">
+            <Image
+              src="/images/photos/roof.jpg"
+              alt="Andrew and Kayla on the roof"
+              width={600}
+              height={750}
+              className="w-full h-full object-cover"
+            />
           </div>
-          <div className="aspect-[4/5] rounded-2xl bg-sage/10 border-2 border-dashed border-sage/30 flex items-center justify-center">
-            <p className="text-dark/30 text-sm">Photo</p>
+          <div className="aspect-[4/5] overflow-hidden rounded-2xl">
+            <Image
+              src="/images/photos/formal.jpg"
+              alt="Andrew and Kayla dressed up"
+              width={600}
+              height={750}
+              className="w-full h-full object-cover"
+            />
           </div>
         </div>
       </section>
@@ -143,10 +161,26 @@ export default function Home() {
         </div>
       </section>
 
-      {/* Photo placeholder */}
       <section className="mb-20">
-        <div className="aspect-[16/9] rounded-2xl bg-sage/10 border-2 border-dashed border-sage/30 flex items-center justify-center">
-          <p className="text-dark/30 text-sm">Proposal photos coming soon</p>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="aspect-[4/5] overflow-hidden rounded-2xl">
+            <Image
+              src="/images/photos/paris-garden.jpg"
+              alt="Andrew and Kayla in the garden in Paris"
+              width={600}
+              height={750}
+              className="w-full h-full object-cover"
+            />
+          </div>
+          <div className="aspect-[4/5] overflow-hidden rounded-2xl">
+            <Image
+              src="/images/photos/proposal.jpg"
+              alt="Andrew proposing to Kayla in Paris"
+              width={600}
+              height={750}
+              className="w-full h-full object-cover"
+            />
+          </div>
         </div>
       </section>
 
