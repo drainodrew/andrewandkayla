@@ -48,8 +48,8 @@ export function Navigation() {
               href="/rsvp"
               className={`rounded-full px-5 py-1.5 text-sm font-medium transition-colors ${
                 pathname === "/rsvp"
-                  ? "bg-deep-sage text-cream"
-                  : "bg-deep-sage text-cream hover:bg-deep-sage/90"
+                  ? "bg-pink text-dark"
+                  : "bg-pink text-dark hover:bg-pink/80"
               }`}
             >
               RSVP
@@ -111,7 +111,7 @@ export function Navigation() {
             <li className="pt-2 pb-3">
               <Link
                 href="/rsvp"
-                className="block text-center rounded-full bg-deep-sage px-5 py-2 text-sm font-medium text-cream"
+                className="block text-center rounded-full bg-pink px-5 py-2 text-sm font-medium text-dark"
                 onClick={() => setIsOpen(false)}
               >
                 RSVP
