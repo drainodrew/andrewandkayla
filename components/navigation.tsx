@@ -6,7 +6,6 @@ import { usePathname } from "next/navigation";
 
 const NAV_LINKS = [
   { href: "/", label: "Home" },
-  { href: "/rsvp", label: "RSVP" },
   { href: "/schedule", label: "Schedule" },
   { href: "/lodging", label: "Lodging" },
   { href: "/things-to-do", label: "Things To Do" },
@@ -29,7 +28,7 @@ export function Navigation() {
         </Link>
 
         {/* Desktop nav */}
-        <ul className="hidden md:flex gap-6">
+        <ul className="hidden md:flex items-center gap-6">
           {NAV_LINKS.map(({ href, label }) => (
             <li key={href}>
               <Link
@@ -44,6 +43,18 @@ export function Navigation() {
               </Link>
             </li>
           ))}
+          <li>
+            <Link
+              href="/rsvp"
+              className={`rounded-full px-5 py-1.5 text-sm font-medium transition-colors ${
+                pathname === "/rsvp"
+                  ? "bg-deep-sage text-cream"
+                  : "bg-deep-sage text-cream hover:bg-deep-sage/90"
+              }`}
+            >
+              RSVP
+            </Link>
+          </li>
         </ul>
 
         {/* Hamburger button */}
@@ -97,6 +108,15 @@ export function Navigation() {
                 </Link>
               </li>
             ))}
+            <li className="pt-2 pb-3">
+              <Link
+                href="/rsvp"
+                className="block text-center rounded-full bg-deep-sage px-5 py-2 text-sm font-medium text-cream"
+                onClick={() => setIsOpen(false)}
+              >
+                RSVP
+              </Link>
+            </li>
           </ul>
         </div>
       )}

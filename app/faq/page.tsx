@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import Link from "next/link";
 
 type FAQItem = {
   question: string;
-  answer: string;
+  answer: ReactNode;
 };
 
 type FAQCategory = {
@@ -29,7 +30,7 @@ const faqData: FAQCategory[] = [
       {
         question: "What is the dress code?",
         answer:
-          "Formal. Think suits, cocktail dresses, or whatever makes you feel amazing. Nashville in late August is warm, so plan accordingly (lightweight fabrics are your friend).",
+          "Summer Formal. For the guys, think linen suits, loafers or cowboy boots, and a tie, bow tie, or bolo tie. For the ladies, cocktail dresses or anything that makes you feel amazing. Nashville in late August is warm, so lightweight fabrics are your friend.",
       },
       {
         question: "Will the ceremony and reception be at the same location?",
@@ -43,18 +44,29 @@ const faqData: FAQCategory[] = [
     items: [
       {
         question: "How do I RSVP?",
-        answer:
-          'Right here on this website! Head over to the RSVP page, search for your name, and let us know if you can make it. No stamps required.',
+        answer: (
+          <>
+            Right here on this website! Head over to the{" "}
+            <Link
+              href="/rsvp"
+              className="text-deep-sage underline underline-offset-2 hover:text-deep-sage/80"
+            >
+              RSVP page
+            </Link>
+            , search for your name, and let us know if you can make it. No
+            stamps required.
+          </>
+        ),
       },
       {
-        question: "Can I bring a plus one?",
+        question: "Can I bring a date?",
         answer:
-          "Your invitation specifies who's included in your party. If you have questions about your guest count, reach out to Andrew or Kayla directly and we'll get it sorted.",
+          "Our venue has very specific size constraints. Please do not bring additional guests outside of those listed on your invitation / RSVP form.",
       },
       {
         question: "When is the RSVP deadline?",
         answer:
-          "We're finalizing the deadline and will update this soon. Keep an eye out!",
+          "Please RSVP by June 1, 2026. We need final headcounts for catering and seating, so the sooner the better!",
       },
       {
         question: "I'm having trouble with the RSVP. What do I do?",
@@ -68,8 +80,19 @@ const faqData: FAQCategory[] = [
     items: [
       {
         question: "Where should I stay?",
-        answer:
-          'Check out our Lodging page for recommendations. We don\'t have an official hotel block, but we\'ve put together a list of great options near the venue at different price points.',
+        answer: (
+          <>
+            Check out our{" "}
+            <Link
+              href="/lodging"
+              className="text-deep-sage underline underline-offset-2 hover:text-deep-sage/80"
+            >
+              Lodging page
+            </Link>{" "}
+            for recommendations. We don&apos;t have an official hotel block, but
+            we&apos;ve put together a list of great options near the venue.
+          </>
+        ),
       },
       {
         question: "What's the closest airport?",
@@ -83,8 +106,18 @@ const faqData: FAQCategory[] = [
       },
       {
         question: "What is there to do in Nashville?",
-        answer:
-          'So much! Nashville is an incredible city. Check out our Things To Do page for our favorite spots, from honky-tonks to hot chicken.',
+        answer: (
+          <>
+            So much! Nashville is an incredible city. Check out our{" "}
+            <Link
+              href="/things-to-do"
+              className="text-deep-sage underline underline-offset-2 hover:text-deep-sage/80"
+            >
+              Things To Do page
+            </Link>{" "}
+            for our favorite spots, from honky tonks to hot chicken.
+          </>
+        ),
       },
     ],
   },
@@ -142,12 +175,6 @@ function AccordionItem({
           +
         </span>
       </button>
-      {/*
-       * Smooth expand/collapse via CSS grid trick:
-       * grid-template-rows transitions between 0fr and 1fr.
-       * The inner div has overflow:hidden + min-h-0 so content
-       * is clipped during the transition.
-       */}
       <div
         className="grid transition-[grid-template-rows] duration-300 ease-in-out"
         style={{
@@ -155,7 +182,7 @@ function AccordionItem({
         }}
       >
         <div className="overflow-hidden min-h-0">
-          <p className="pb-5 text-dark/80 leading-relaxed">{item.answer}</p>
+          <div className="pb-5 text-dark/80 leading-relaxed">{item.answer}</div>
         </div>
       </div>
     </div>
@@ -163,7 +190,6 @@ function AccordionItem({
 }
 
 export default function FAQPage() {
-  // Track which items are open by a composite key of "categoryIndex-itemIndex"
   const [openItems, setOpenItems] = useState<Set<string>>(new Set());
 
   function toggleItem(key: string) {

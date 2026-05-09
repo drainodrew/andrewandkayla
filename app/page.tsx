@@ -1,38 +1,78 @@
+"use client";
+
 import Link from "next/link";
+import { useEffect, useState } from "react";
+
+function Countdown({ targetDate }: { targetDate: string }) {
+  const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+
+  useEffect(() => {
+    const target = new Date(targetDate).getTime();
+
+    function update() {
+      const now = Date.now();
+      const diff = Math.max(0, target - now);
+      setTimeLeft({
+        days: Math.floor(diff / (1000 * 60 * 60 * 24)),
+        hours: Math.floor((diff / (1000 * 60 * 60)) % 24),
+        minutes: Math.floor((diff / (1000 * 60)) % 60),
+        seconds: Math.floor((diff / 1000) % 60),
+      });
+    }
+
+    update();
+    const interval = setInterval(update, 1000);
+    return () => clearInterval(interval);
+  }, [targetDate]);
+
+  return (
+    <div className="flex justify-center gap-6 sm:gap-10">
+      {[
+        { value: timeLeft.days, label: "Days" },
+        { value: timeLeft.hours, label: "Hours" },
+        { value: timeLeft.minutes, label: "Minutes" },
+        { value: timeLeft.seconds, label: "Seconds" },
+      ].map(({ value, label }) => (
+        <div key={label} className="text-center">
+          <span className="block text-3xl sm:text-4xl font-heading text-deep-sage">
+            {value}
+          </span>
+          <span className="text-xs uppercase tracking-wider text-dark/50">
+            {label}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
 
 export default function Home() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-16">
       {/* Hero */}
-      <section className="text-center mb-20">
-        <h1 className="text-6xl sm:text-7xl font-heading text-deep-sage mb-4">
-          Andrew & Kayla
-        </h1>
-        <p className="text-xl text-dark/80 mb-2">
-          Saturday, August 29, 2026
-        </p>
-        <p className="text-dark/60 mb-8">
-          Belle Meade Mansion &middot; Nashville, Tennessee
-        </p>
-        <p className="text-lg text-dark/70 max-w-xl mx-auto leading-relaxed">
-          A celebration of love, family, and the people who made us who we are.
-          We can&apos;t wait to share this day with you.
-        </p>
-        <div className="mt-8">
-          <Link
-            href="/rsvp"
-            className="inline-block rounded-lg bg-pink px-8 py-3 font-medium text-dark transition-colors hover:bg-pink/80 focus:outline-none focus:ring-2 focus:ring-sage"
-          >
-            RSVP
-          </Link>
-        </div>
-      </section>
-
-      {/* Photo placeholder */}
-      <section className="mb-20">
-        <div className="aspect-[16/9] rounded-2xl bg-sage/10 border-2 border-dashed border-sage/30 flex items-center justify-center">
+      <section className="text-center mb-16">
+        {/* Photo placeholder */}
+        <div className="mx-auto mb-10 max-w-2xl aspect-[16/10] rounded-2xl bg-sage/10 border-2 border-dashed border-sage/30 flex items-center justify-center">
           <p className="text-dark/30 text-sm">Photo coming soon</p>
         </div>
+
+        <h1 className="text-6xl sm:text-7xl font-heading text-deep-sage mb-3">
+          Andrew & Kayla
+        </h1>
+        <p className="text-lg tracking-wide text-dark/70 mb-6">
+          August 29, 2026 &middot; Nashville, Tennessee
+        </p>
+
+        <div className="mb-8">
+          <Countdown targetDate="2026-08-29T17:00:00-05:00" />
+        </div>
+
+        <Link
+          href="/rsvp"
+          className="inline-block rounded-full bg-deep-sage px-10 py-3.5 text-base font-medium text-cream tracking-wide transition-colors hover:bg-deep-sage/90 focus:outline-none focus:ring-2 focus:ring-pink"
+        >
+          RSVP Now
+        </Link>
       </section>
 
       {/* Our Story */}
@@ -42,16 +82,16 @@ export default function Home() {
         </h2>
         <div className="max-w-2xl mx-auto space-y-5 text-dark/80 leading-relaxed">
           <p>
-            Andrew had been hearing Kayla&apos;s name for years. She was
-            Kara&apos;s little sister. She was the one who demolished all of his
-            Cutco sales records. But they didn&apos;t actually meet until they
-            both moved back to Nashville in 2023.
+            I had been hearing Kayla&apos;s name for years. She was Kara&apos;s
+            little sister. She was the one who demolished all of my Cutco sales
+            records. But we didn&apos;t actually meet until we both moved back to
+            Nashville in 2023.
           </p>
           <p>
-            Their first date was spent honky tonking to the Cowpokes (the very
-            same band that will be playing at the wedding). Andrew felt certain
-            about Kayla from the start and hasn&apos;t had a wavering thought
-            since.
+            We went dancing on our first date, honky tonking to the Cowpokes
+            (the very same band that will be playing at our wedding). I felt
+            certain about Kayla from the start and I haven&apos;t had a wavering
+            thought since.
           </p>
         </div>
       </section>
@@ -75,23 +115,23 @@ export default function Home() {
         </h2>
         <div className="max-w-2xl mx-auto space-y-5 text-dark/80 leading-relaxed">
           <p>
-            Kayla was supposed to fly home from Paris on a Sunday. Andrew
-            received her family&apos;s blessing the Monday before and was so
-            excited that he physically could not wait to propose.
+            Kayla was supposed to fly home from Paris on a Sunday. I received
+            her family&apos;s blessing the Monday before and I was so excited
+            that I physically could not wait to propose.
           </p>
           <p>
-            So he booked a flight the night before and surprised her on Saturday.
-            She had no idea he wasn&apos;t in Nashville until she saw him
-            standing there in the garden. (Shoutout to Ally for hacking his Find
-            My location to make it look like he was at home.)
+            So I booked a flight the night before and surprised her on Saturday.
+            She had no idea I wasn&apos;t in Nashville until she saw me standing
+            there in the garden. (Shoutout to my sister Ally for hacking my
+            Find My location to make it look like I was at home.)
           </p>
           <p>
-            He also flew Kara into Paris from Valencia as a surprise. She took
-            the beautiful photos they&apos;ll cherish forever, and it was so
-            sweet to have her be a part of that day.
+            I also flew Kara into Paris from Valencia as a surprise. She took
+            the beautiful photos we&apos;ll cherish forever, and it was so sweet
+            to have her be a part of that day.
           </p>
           <p>
-            They canceled Kayla&apos;s return flight and bopped around Paris and
+            We canceled Kayla&apos;s return flight and bopped around Paris and
             Florence for a week.
           </p>
         </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { submitRsvp, clearRsvpSession } from "@/lib/actions/rsvp";
 
 interface Guest {
@@ -150,14 +151,36 @@ export function RsvpForm({
         <h2 className="text-3xl font-heading text-deep-sage mb-4">
           Thank you!
         </h2>
-        <p className="text-dark/80 mb-6">
+        <p className="text-dark/80 mb-8">
           Your RSVP for {partyName} has been saved. You can come back and
           update it anytime before the wedding.
         </p>
+
+        <div className="grid grid-cols-3 gap-3 mb-8">
+          <Link
+            href="/schedule"
+            className="rounded-xl border border-sage/30 bg-white p-4 text-sm font-medium text-dark transition-colors hover:border-pink hover:bg-pink/5 focus:outline-none focus:ring-2 focus:ring-sage"
+          >
+            Schedule
+          </Link>
+          <Link
+            href="/registry"
+            className="rounded-xl border-2 border-pink bg-pink/10 p-4 text-sm font-medium text-dark transition-colors hover:bg-pink/20 focus:outline-none focus:ring-2 focus:ring-sage"
+          >
+            Registry
+          </Link>
+          <Link
+            href="/things-to-do"
+            className="rounded-xl border border-sage/30 bg-white p-4 text-sm font-medium text-dark transition-colors hover:border-pink hover:bg-pink/5 focus:outline-none focus:ring-2 focus:ring-sage"
+          >
+            Things To Do
+          </Link>
+        </div>
+
         <button
           type="button"
           onClick={() => setSubmitted(false)}
-          className="rounded-lg bg-pink px-6 py-3 font-medium text-dark transition-colors hover:bg-pink/80 focus:outline-none focus:ring-2 focus:ring-sage"
+          className="text-sm text-dark/50 underline hover:text-dark/70"
         >
           Update RSVP
         </button>

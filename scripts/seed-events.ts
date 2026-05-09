@@ -41,7 +41,7 @@ const events = [
     ends_at: "2026-08-29T23:00:00-05:00",
     location: "Belle Meade Mansion",
     address: "110 Leake Ave, Nashville, TN 37205",
-    dress_code: "Formal",
+    dress_code: "Summer Formal",
     description: "Join us as we say our vows and celebrate with dinner and dancing.",
     sort_order: 1,
   },
