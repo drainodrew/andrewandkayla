@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import {
   getRegistryItems,
   claimItem,
@@ -77,19 +78,64 @@ function ConfirmModal({
   );
 }
 
+function NeedRsvpModal({ onClose }: { onClose: () => void }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="absolute inset-0 bg-dark/40 backdrop-blur-sm"
+        onClick={onClose}
+      />
+      <div className="relative bg-white rounded-2xl p-8 max-w-md w-full shadow-xl text-center">
+        <h3 className="text-xl font-heading text-deep-sage mb-3">
+          RSVP First!
+        </h3>
+        <p className="text-sm text-dark/70 mb-6">
+          We need to know who you are before you can claim a gift. RSVP real
+          quick and then come back here.
+        </p>
+        <div className="flex gap-3">
+          <Link
+            href="/rsvp"
+            className="flex-1 rounded-lg bg-pink px-5 py-3 text-sm font-medium text-dark text-center transition-colors hover:bg-pink/80"
+          >
+            Go to RSVP
+          </Link>
+          <button
+            type="button"
+            onClick={onClose}
+            className="flex-1 rounded-lg border border-sage/40 px-5 py-3 text-sm font-medium text-dark/70 transition-colors hover:bg-sage/10"
+          >
+            Maybe later
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Honeymoon fund is special: it's never "purchased" or "pending",
+ * it allows unlimited contributions.
+ */
+function isHoneymoonFund(item: RegistryItem): boolean {
+  return item.price_cents === 0 && !item.merchant_url;
+}
+
 function RegistryCard({
   item,
   onClaim,
   onReturn,
 }: {
   item: RegistryItem;
-  onClaim: (id: string) => void;
+  onClaim: (id: string, merchantUrl: string | null) => void;
   onReturn: (id: string) => void;
 }) {
   const [isHovered, setIsHovered] = useState(false);
-  const isPurchased = item.status === "purchased";
-  const isPendingByMe = item.status === "pending" && item.claimed_by_me;
-  const isPendingByOther = item.status === "pending" && !item.claimed_by_me;
+  const honeymoon = isHoneymoonFund(item);
+  const isPurchased = item.status === "purchased" && !honeymoon;
+  const isPendingByMe = item.status === "pending" && item.claimed_by_me && !honeymoon;
+  const isPendingByOther =
+    item.status === "pending" && !item.claimed_by_me && !honeymoon;
 
   return (
     <div
@@ -101,14 +147,12 @@ function RegistryCard({
       onMouseEnter={() => setIsHovered(true)}
       onMouseLeave={() => setIsHovered(false)}
     >
-      {/* Purchased badge */}
       {isPurchased && (
         <div className="absolute top-4 right-4 z-10 rounded-full bg-sage/80 px-3 py-1 text-xs font-medium text-white">
           Purchased
         </div>
       )}
 
-      {/* Image */}
       <div className="relative aspect-square overflow-hidden bg-cream">
         {item.image_url ? (
           <Image
@@ -139,7 +183,6 @@ function RegistryCard({
         )}
       </div>
 
-      {/* Details */}
       <div className="p-5">
         <div className="mb-3">
           <h3 className="font-medium text-dark text-base leading-snug">
@@ -156,18 +199,28 @@ function RegistryCard({
           </p>
         )}
 
-        <div className="flex items-center justify-between">
-          <span className="text-lg font-medium text-deep-sage">
-            {formatPrice(item.price_cents)}
-          </span>
+        <div className="flex items-center justify-between gap-3">
+          {!honeymoon && (
+            <span className="text-lg font-medium text-deep-sage">
+              {formatPrice(item.price_cents)}
+            </span>
+          )}
 
-          {isPurchased ? (
+          {honeymoon ? (
+            <button
+              type="button"
+              onClick={() => onClaim(item.id, null)}
+              className="w-full rounded-full bg-pink px-5 py-2.5 text-sm font-medium text-dark transition-colors hover:bg-pink/80 active:bg-pink/70 focus:outline-none focus:ring-2 focus:ring-sage"
+            >
+              Contribute
+            </button>
+          ) : isPurchased ? (
             <span className="text-sm text-dark/40">Thank you!</span>
           ) : isPendingByMe ? (
             <button
               type="button"
               onClick={() => onReturn(item.id)}
-              className="rounded-full border border-sage/40 px-5 py-2 text-sm font-medium text-dark/70 transition-colors hover:bg-sage/10"
+              className="rounded-full border border-sage/40 px-5 py-2.5 text-sm font-medium text-dark/70 transition-colors hover:bg-sage/10 active:bg-sage/20"
             >
               I changed my mind
             </button>
@@ -178,8 +231,8 @@ function RegistryCard({
           ) : (
             <button
               type="button"
-              onClick={() => onClaim(item.id)}
-              className="rounded-full bg-pink px-5 py-2 text-sm font-medium text-dark transition-colors hover:bg-pink/80 focus:outline-none focus:ring-2 focus:ring-sage"
+              onClick={() => onClaim(item.id, item.merchant_url)}
+              className="rounded-full bg-pink px-5 py-2.5 text-sm font-medium text-dark transition-colors hover:bg-pink/80 active:bg-pink/70 focus:outline-none focus:ring-2 focus:ring-sage"
             >
               I want to buy this
             </button>
@@ -198,6 +251,7 @@ export default function RegistryPage() {
   const [confirmingItem, setConfirmingItem] = useState<RegistryItem | null>(
     null
   );
+  const [showRsvpModal, setShowRsvpModal] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
   const loadItems = useCallback(async () => {
@@ -214,27 +268,31 @@ export default function RegistryPage() {
     loadItems();
   }, [loadItems]);
 
-  const handleClaim = async (itemId: string) => {
+  const handleClaim = async (itemId: string, merchantUrl: string | null) => {
+    // Open merchant URL FIRST (synchronously from user gesture)
+    // so mobile browsers don't block the popup
+    if (merchantUrl) {
+      window.open(merchantUrl, "_blank");
+    }
+
     setActionLoading(true);
     const result = await claimItem(itemId);
 
     if (result.error) {
-      setError(result.error);
+      if (result.error.includes("RSVP")) {
+        setShowRsvpModal(true);
+      } else {
+        setError(result.error);
+      }
       setActionLoading(false);
       return;
     }
 
-    // Find the item and open merchant URL
-    const item = items.find((i) => i.id === itemId);
-    if (item?.merchant_url) {
-      window.open(item.merchant_url, "_blank");
-    }
-
-    // Reload items then show confirmation modal
+    // Reload and show confirmation modal
     await loadItems();
-    const updatedItem = items.find((i) => i.id === itemId) || item;
-    if (updatedItem) {
-      setConfirmingItem(updatedItem);
+    const item = items.find((i) => i.id === itemId);
+    if (item && !isHoneymoonFund(item)) {
+      setConfirmingItem(item);
     }
     setActionLoading(false);
   };
@@ -270,11 +328,16 @@ export default function RegistryPage() {
     await loadItems();
   };
 
-  // Sort items: purchased always at bottom, then by sort option
   const sortedItems = [...items].sort((a, b) => {
+    // Honeymoon fund always last (but above purchased)
+    const aHoneymoon = isHoneymoonFund(a);
+    const bHoneymoon = isHoneymoonFund(b);
+
     // Purchased items sink to bottom
-    if (a.status === "purchased" && b.status !== "purchased") return 1;
-    if (a.status !== "purchased" && b.status === "purchased") return -1;
+    const aPurchased = a.status === "purchased" && !aHoneymoon;
+    const bPurchased = b.status === "purchased" && !bHoneymoon;
+    if (aPurchased && !bPurchased) return 1;
+    if (!aPurchased && bPurchased) return -1;
 
     if (sortBy === "price-low") {
       return (a.price_cents || 0) - (b.price_cents || 0);
@@ -283,7 +346,6 @@ export default function RegistryPage() {
       return (b.price_cents || 0) - (a.price_cents || 0);
     }
 
-    // Default: sort_order
     return (a.sort_order || 0) - (b.sort_order || 0);
   });
 
@@ -307,7 +369,6 @@ export default function RegistryPage() {
         </p>
       </div>
 
-      {/* Sort controls */}
       {items.length > 0 && (
         <div className="flex justify-end mb-6">
           <select
@@ -360,7 +421,6 @@ export default function RegistryPage() {
         </p>
       </div>
 
-      {/* Confirmation modal */}
       {confirmingItem && (
         <ConfirmModal
           itemName={confirmingItem.name}
@@ -368,6 +428,10 @@ export default function RegistryPage() {
           onCancel={handleCancelClaim}
           isLoading={actionLoading}
         />
+      )}
+
+      {showRsvpModal && (
+        <NeedRsvpModal onClose={() => setShowRsvpModal(false)} />
       )}
     </div>
   );
