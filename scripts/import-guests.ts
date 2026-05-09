@@ -1,17 +1,17 @@
 /**
  * import-guests.ts
  *
- * Reads invite-addresses.csv (GHL export) and outputs
- * parsed_guests_preview.csv for human review before loading to Supabase.
+ * Reads the updated wedding mailing list CSV and outputs clean,
+ * reviewable CSVs for human review before loading to Supabase.
  *
  * Run with: npx tsx scripts/import-guests.ts
  *
  * What this script does:
- * 1. Parses the messy GHL CSV (quoted fields, extra columns, bad addresses)
- * 2. Splits "Name1 & Name2" into individual guests
- * 3. Creates placeholder "Guest of X" rows when count > named people
- * 4. Cleans address data (strips "add", "Need to add address", etc.)
- * 5. Maps GHL "stage" column to source_tag
+ * 1. Parses the GHL export CSV (quoted fields, extra columns)
+ * 2. Expands families using known member lists
+ * 3. Splits "Name1 & Name2" couples into individual guests
+ * 4. Skips non-guest rows (e.g. Belle Meade Mansion)
+ * 5. Flags families where we're still awaiting member names
  * 6. Outputs two CSVs:
  *    - parsed_parties_preview.csv  (one row per party)
  *    - parsed_guests_preview.csv   (one row per guest)
@@ -23,21 +23,6 @@ import { readFileSync, writeFileSync } from "fs";
 import { join } from "path";
 
 // --- Types ---
-
-interface RawRow {
-  "Name(s)": string;
-  Count: string;
-  Address: string;
-  "Address 2": string;
-  City: string;
-  State: string;
-  "Zip Code": string;
-  phone: string;
-  email: string;
-  stage: string;
-  "Contact Name": string;
-  Notes: string;
-}
 
 interface ParsedParty {
   invite_name: string;
@@ -61,13 +46,73 @@ interface ParsedGuest {
   is_placeholder: boolean;
 }
 
+// --- Name overrides ---
+// Families where the CSV just says "The X Family" but we know who's in it,
+// and names where the generic splitter gets it wrong (e.g. multi-word
+// surnames like "Zambrano Zambrano").
+// Entries marked AWAITING have placeholder members that need to be filled in.
+
+const NAME_OVERRIDES: Record<
+  string,
+  { firstName: string; lastName: string }[]
+> = {
+  "The Huncke Family": [
+    { firstName: "Kevan", lastName: "Huncke" },
+    { firstName: "Dan", lastName: "Huncke" },
+    { firstName: "Carson", lastName: "Huncke" },
+  ],
+  "The Wegner Family": [
+    { firstName: "Dean", lastName: "Wegner" },
+    { firstName: "Kelly", lastName: "Wegner" },
+    { firstName: "Kara", lastName: "Wegner" },
+    { firstName: "Dylan", lastName: "Wegner" },
+    { firstName: "Eskel", lastName: "Wegner" },
+  ],
+  "The Moore Family": [
+    { firstName: "Joe", lastName: "Moore" },
+    { firstName: "Julia", lastName: "Moore" },
+    { firstName: "Ellery", lastName: "Brewbaker" },
+    { firstName: "Tom", lastName: "Brewbaker" },
+    { firstName: "Matthew", lastName: "Moore" },
+    { firstName: "Mary", lastName: "Moore" },
+    { firstName: "Keagan", lastName: "Moore" },
+    { firstName: "Madelyn", lastName: "Moore" },
+  ],
+  "The McGuire Family": [
+    { firstName: "Annie", lastName: "McGuire" },
+    { firstName: "Megan", lastName: "McGuire" },
+    { firstName: "Tommy", lastName: "McGuire" },
+    { firstName: "Jeff", lastName: "McGuire" },
+    { firstName: "Tracy", lastName: "McGuire" },
+  ],
+  "The Schenkel Family": [
+    { firstName: "Kendra", lastName: "Schenkel" },
+    { firstName: "Dave", lastName: "Schenkel" },
+    { firstName: "Luke", lastName: "Schenkel" },
+    { firstName: "AnnaClaire", lastName: "Schenkel" },
+  ],
+  // Partial list; more members may be added directly in Supabase
+  "The Meyer Family": [
+    { firstName: "Nick", lastName: "Meyer" },
+    { firstName: "Karen", lastName: "Meyer" },
+    { firstName: "Sonia", lastName: "Meyer" },
+    { firstName: "Ellie", lastName: "Meyer" },
+  ],
+  // Venezuelan double surname; generic splitter can't handle this
+  "Victor Zambrano Zambrano": [
+    { firstName: "Victor", lastName: "Zambrano Zambrano" },
+  ],
+  "David & Kimberly Zambrano Zambrano": [
+    { firstName: "David", lastName: "Zambrano Zambrano" },
+    { firstName: "Kimberly", lastName: "Zambrano Zambrano" },
+  ],
+};
+
+// Rows to skip entirely (not guests)
+const SKIP_NAMES = new Set(["Belle Meade Mansion"]);
+
 // --- CSV parsing ---
 
-/**
- * Minimal CSV parser that handles quoted fields with commas.
- * We're not pulling in a dependency for this; the GHL export is
- * simple enough that we just need to handle double-quote wrapping.
- */
 function parseCSV(text: string): Record<string, string>[] {
   const lines = text.split("\n").filter((line) => line.trim() !== "");
   if (lines.length === 0) return [];
@@ -98,7 +143,7 @@ function parseCSVLine(line: string): string[] {
       if (char === '"') {
         if (i + 1 < line.length && line[i + 1] === '"') {
           current += '"';
-          i++; // skip escaped quote
+          i++;
         } else {
           inQuotes = false;
         }
@@ -123,43 +168,40 @@ function parseCSVLine(line: string): string[] {
 // --- Name splitting ---
 
 /**
- * Given an invite name like "Braxton & Emily Bonds", split into
- * individual guests. Handles these patterns:
+ * Split an invite name into individual guests.
  *
- * "Braxton & Emily Bonds"     -> [{Braxton, Bonds}, {Emily, Bonds}]
- * "Vijay Rajkumar"            -> [{Vijay, Rajkumar}]
- * "Huncke Family"             -> [{Huncke, Family}] (family treated as unit)
- * "The Moore Family"          -> [{Moore, Family}]
- * "Phillip, Rhonda & Macy Li Kemp" -> [{Phillip, Kemp}, {Rhonda, Kemp}, {Macy Li, Kemp}]
- * "Martha Lugo & José Vázquez" -> [{Martha, Lugo}, {José, Vázquez}]
+ * Handles:
+ *   "Braxton & Emily Bonds"          -> [{Braxton, Bonds}, {Emily, Bonds}]
+ *   "Martha Lugo & José Vázquez"     -> [{Martha, Lugo}, {José, Vázquez}]
+ *   "Sarah Taylor and Joshua Gobble" -> [{Sarah, Taylor}, {Joshua, Gobble}]
+ *   "Vijay Rajkumar"                 -> [{Vijay, Rajkumar}]
+ *   "Phillip, Rhonda & Macy Li Kemp" -> [{Phillip, Kemp}, {Rhonda, Kemp}, {Macy Li, Kemp}]
+ *   "Ruby Monette-Meadow"            -> [{Ruby, Monette-Meadow}]
+ *   "Brian O'Boyle"                  -> [{Brian, O'Boyle}]
  */
 function splitNames(
   inviteName: string
 ): { firstName: string; lastName: string }[] {
   const cleaned = inviteName.trim();
 
-  // "The X Family" pattern
-  const familyMatch = cleaned.match(/^(?:The\s+)?(\w+)\s+Family$/i);
-  if (familyMatch) {
-    return [{ firstName: familyMatch[1], lastName: "Family" }];
-  }
-
-  // Split on " & " or ", " to get name parts
-  // "Phillip, Rhonda & Macy Li Kemp" -> ["Phillip", "Rhonda", "Macy Li Kemp"]
-  const parts = cleaned.split(/\s*&\s*|\s*,\s*/);
+  // Split on " & ", " and ", or ", " to get name parts
+  const parts = cleaned.split(/\s+(?:&|and)\s+|\s*,\s*/);
 
   if (parts.length === 1) {
-    // Single person: "Vijay Rajkumar"
+    // Single person
     const words = parts[0].trim().split(/\s+/);
     if (words.length === 1) {
       return [{ firstName: words[0], lastName: "" }];
     }
-    return [{ firstName: words.slice(0, -1).join(" "), lastName: words[words.length - 1] }];
+    return [
+      {
+        firstName: words.slice(0, -1).join(" "),
+        lastName: words[words.length - 1],
+      },
+    ];
   }
 
   // Multiple people. The last part has the shared last name.
-  // "Braxton" & "Emily Bonds" -> last name is Bonds
-  // "Martha Lugo" & "José Vázquez" -> each has their own last name
   const lastPart = parts[parts.length - 1].trim();
   const lastPartWords = lastPart.split(/\s+/);
   const sharedLastName = lastPartWords[lastPartWords.length - 1];
@@ -181,8 +223,7 @@ function splitNames(
         });
       }
     } else {
-      // Earlier person: if they have 2+ words, they have their own last name
-      // "Martha Lugo" has her own. "Braxton" shares the last person's.
+      // Earlier person: 2+ words means they have their own last name
       if (words.length >= 2) {
         guests.push({
           firstName: words.slice(0, -1).join(" "),
@@ -197,26 +238,15 @@ function splitNames(
   return guests;
 }
 
-// --- Address cleaning ---
-
-const JUNK_ADDRESSES = ["add", "need to add address", ""];
-
-function cleanAddress(addr: string): string {
-  if (JUNK_ADDRESSES.includes(addr.toLowerCase().trim())) return "";
-  return addr.trim();
-}
-
-function cleanCity(city: string): string {
-  if (city === "?") return "";
-  return city.trim();
-}
-
 // --- Main ---
 
 function main() {
-  const csvPath = join(__dirname, "..", "invite-addresses.csv");
+  const csvPath = join(
+    __dirname,
+    "Updated_Wedding_Mailing_List_rehearsal - final-wedding-mail-list.csv"
+  );
   const raw = readFileSync(csvPath, "utf-8");
-  const rows = parseCSV(raw) as unknown as RawRow[];
+  const rows = parseCSV(raw);
 
   console.log(`Read ${rows.length} rows from CSV`);
 
@@ -225,75 +255,81 @@ function main() {
   const warnings: string[] = [];
 
   for (const row of rows) {
-    const inviteName = row["Name(s)"];
+    const inviteName = (row["Name(s)"] || "").trim();
     if (!inviteName) {
-      warnings.push(`Skipping row with empty name`);
+      warnings.push("Skipping row with empty name");
       continue;
     }
 
-    const countRaw = row.Count;
-    // The "Total Count" column in row 2 has a long note instead of a number.
-    // The "Count" column is what we want for party_size.
-    const partySize = parseInt(countRaw, 10);
-    if (isNaN(partySize) || partySize < 1) {
-      warnings.push(`"${inviteName}": invalid count "${countRaw}", defaulting to 1`);
+    if (SKIP_NAMES.has(inviteName)) {
+      console.log(`  Skipping non-guest row: "${inviteName}"`);
+      continue;
     }
-    const size = isNaN(partySize) || partySize < 1 ? 1 : partySize;
+
+    // Determine individual guests for this party
+    let partyGuests: { firstName: string; lastName: string }[];
+
+    if (NAME_OVERRIDES[inviteName] !== undefined) {
+      const members = NAME_OVERRIDES[inviteName];
+      if (members.length === 0) {
+        warnings.push(
+          `AWAITING NAMES: "${inviteName}" has no members listed yet. ` +
+            `Add names to NAME_OVERRIDES in import-guests.ts.`
+        );
+        // Create a single placeholder so the party still appears
+        partyGuests = [];
+      } else {
+        partyGuests = members;
+      }
+    } else {
+      partyGuests = splitNames(inviteName);
+    }
+
+    // Parse address. The new CSV has separate City and State columns.
+    const addressRaw = (row["Address"] || "").trim();
+    const city = (row["City"] || "").trim();
+    const state = (row["State"] || "").trim();
+    const zip = (row["Zip Code"] || "").trim();
+    const phone = (row["phone"] || "").trim();
+    const email = (row["email"] || "").trim();
+    const stage = (row["stage"] || "").trim();
+
+    const partySize = Math.max(partyGuests.length, 1);
 
     const party: ParsedParty = {
       invite_name: inviteName,
-      party_size: size,
-      address_line_1: cleanAddress(row.Address || ""),
-      address_line_2: cleanAddress(row["Address 2"] || ""),
-      city: cleanCity(row.City || ""),
-      state: (row.State || "").trim(),
-      zip_code: (row["Zip Code"] || "").trim(),
-      phone: (row.phone || "").trim(),
-      email: (row.email || "").trim(),
-      source_tag: (row.stage || "").trim(),
-      notes: (row.Notes || "").trim(),
+      party_size: partySize,
+      address_line_1: addressRaw,
+      address_line_2: "",
+      city,
+      state,
+      zip_code: zip,
+      phone,
+      email,
+      source_tag: stage,
+      notes: "",
       hidden_from_search: false,
     };
 
     parties.push(party);
 
-    // Split names into individual guests
-    const namedGuests = splitNames(inviteName);
-
-    for (const ng of namedGuests) {
+    if (partyGuests.length === 0) {
+      // Family with no members yet, create placeholder
       guests.push({
         party_invite_name: inviteName,
-        first_name: ng.firstName,
-        last_name: ng.lastName,
-        is_placeholder: false,
+        first_name: `[AWAITING] ${inviteName}`,
+        last_name: "",
+        is_placeholder: true,
       });
-    }
-
-    // Create placeholder guests if count > named guests
-    const placeholderCount = size - namedGuests.length;
-    if (placeholderCount > 0) {
-      const primaryName = namedGuests[0]
-        ? `${namedGuests[0].firstName} ${namedGuests[0].lastName}`.trim()
-        : inviteName;
-
-      for (let i = 0; i < placeholderCount; i++) {
-        const label =
-          placeholderCount === 1
-            ? `Guest of ${primaryName}`
-            : `Guest ${i + 1} of ${primaryName}`;
+    } else {
+      for (const g of partyGuests) {
         guests.push({
           party_invite_name: inviteName,
-          first_name: label,
-          last_name: "",
-          is_placeholder: true,
+          first_name: g.firstName,
+          last_name: g.lastName,
+          is_placeholder: false,
         });
       }
-    }
-
-    if (namedGuests.length > size) {
-      warnings.push(
-        `"${inviteName}": ${namedGuests.length} named guests but count is ${size}`
-      );
     }
   }
 
@@ -335,16 +371,24 @@ function main() {
   writeFileSync(join(outDir, "parsed_guests_preview.csv"), guestsCSV);
 
   console.log(`\nOutput:`);
-  console.log(`  ${parties.length} parties -> scripts/parsed_parties_preview.csv`);
-  console.log(`  ${guests.length} guests  -> scripts/parsed_guests_preview.csv`);
+  console.log(
+    `  ${parties.length} parties -> scripts/parsed_parties_preview.csv`
+  );
+  console.log(
+    `  ${guests.length} guests  -> scripts/parsed_guests_preview.csv`
+  );
 
   if (warnings.length > 0) {
-    console.log(`\nWarnings (${warnings.length}):`);
+    console.log(`\n⚠ Warnings (${warnings.length}):`);
     for (const w of warnings) {
       console.log(`  - ${w}`);
     }
   }
 
+  console.log(
+    "\nNote: Meyer Family may be incomplete (Nick, Karen, Sonia, Ellie). " +
+      "Add remaining members directly in Supabase if needed."
+  );
   console.log(`\nReview both CSVs before running load-guests.ts.`);
 }
 

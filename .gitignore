@@ -41,6 +41,7 @@ yarn-error.log*
 *.pdf
 invite-addresses.csv
 scripts/wedding_invite_list.csv
+scripts/Updated_Wedding_Mailing_List*
 scripts/parsed_*_preview.csv
 functionality reference photos/
 
