@@ -91,10 +91,19 @@ async function main() {
     auth: { autoRefreshToken: false, persistSession: false },
   });
 
+  // Check for existing items to avoid duplicates
+  const { data: existing } = await supabase
+    .from("registry_items")
+    .select("name");
+  const existingNames = new Set((existing || []).map((r) => r.name));
+
   for (const item of items) {
-    const { error } = await supabase.from("registry_items").upsert(item, {
-      onConflict: "name",
-    });
+    if (existingNames.has(item.name)) {
+      console.log(`Skipped (already exists): ${item.name}`);
+      continue;
+    }
+
+    const { error } = await supabase.from("registry_items").insert(item);
 
     if (error) {
       console.error(`Failed to insert "${item.name}":`, error.message);
