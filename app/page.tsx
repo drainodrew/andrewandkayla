@@ -51,16 +51,14 @@ export default function Home() {
     <div className="mx-auto max-w-4xl px-4 py-16">
       {/* Hero */}
       <section className="text-center mb-16">
-        {/* Photo placeholder */}
-        <div className="mx-auto mb-10 max-w-2xl aspect-[16/10] rounded-2xl bg-sage/10 border-2 border-dashed border-sage/30 flex items-center justify-center">
-          <p className="text-dark/30 text-sm">Photo coming soon</p>
-        </div>
-
-        <h1 className="text-6xl sm:text-7xl font-heading text-deep-sage mb-3">
+        <h1 className="text-5xl font-heading text-deep-sage mb-4">
           Andrew & Kayla
         </h1>
-        <p className="text-lg tracking-wide text-dark/70 mb-6">
-          August 29, 2026 &middot; Nashville, Tennessee
+        <p className="text-lg text-dark/80 mb-2">
+          Saturday, August 29, 2026
+        </p>
+        <p className="text-dark/60 mb-8">
+          Belle Meade Mansion &middot; Nashville, Tennessee
         </p>
 
         <div className="mb-8">
@@ -69,10 +67,15 @@ export default function Home() {
 
         <Link
           href="/rsvp"
-          className="inline-block rounded-full bg-deep-sage px-10 py-3.5 text-base font-medium text-cream tracking-wide transition-colors hover:bg-deep-sage/90 focus:outline-none focus:ring-2 focus:ring-pink"
+          className="inline-block rounded-lg bg-pink px-8 py-3 font-medium text-dark transition-colors hover:bg-pink/80 focus:outline-none focus:ring-2 focus:ring-sage"
         >
           RSVP Now
         </Link>
+
+        {/* Photo placeholder */}
+        <div className="mx-auto mt-12 max-w-2xl aspect-[16/10] rounded-2xl bg-sage/10 border-2 border-dashed border-sage/30 flex items-center justify-center">
+          <p className="text-dark/30 text-sm">Photo coming soon</p>
+        </div>
       </section>
 
       {/* Our Story */}
