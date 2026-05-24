@@ -266,7 +266,7 @@ export default function SchedulePage() {
           {/* Tennis illustration */}
           <div className="absolute -bottom-6 -right-6 w-36 sm:w-48 opacity-40 pointer-events-none rotate-[5deg]">
             <Image
-              src="/images/graphics/gameday graphic.jpeg"
+              src="/images/graphics/gameday graphic.png"
               alt=""
               width={300}
               height={300}
@@ -295,7 +295,7 @@ export default function SchedulePage() {
       <section className="mt-12 text-center animate-on-scroll">
         <div className="max-w-[200px] mx-auto mb-6">
           <Image
-            src="/images/graphics/IMG_5258.jpeg"
+            src="/images/graphics/IMG_5258.png"
             alt="Kayla and Andrew illustration"
             width={300}
             height={400}

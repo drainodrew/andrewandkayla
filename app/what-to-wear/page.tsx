@@ -139,6 +139,7 @@ export default function WhatToWearPage() {
   useScrollAnimations();
 
   return (
+    <div className="relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen bg-pink/20 min-h-screen">
     <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8 overflow-hidden">
       {/* Header */}
       <div className="text-center mb-6 animate-on-scroll">
@@ -209,7 +210,7 @@ export default function WhatToWearPage() {
       <div className="mt-16 text-center animate-on-scroll">
         <div className="max-w-[180px] mx-auto mb-4">
           <Image
-            src="/images/graphics/Copy of The Manuels.PNG"
+            src="/images/graphics/Copy of The Manuels.png"
             alt="Andrew and Kayla illustration"
             width={300}
             height={300}
@@ -220,6 +221,7 @@ export default function WhatToWearPage() {
           See you on the lawn.
         </p>
       </div>
+    </div>
     </div>
   );
 }

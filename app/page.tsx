@@ -120,7 +120,7 @@ export default function Home() {
         {/* Floating illustration top-right */}
         <div className="absolute -top-4 -right-8 sm:right-0 w-28 sm:w-40 opacity-70 float-gentle pointer-events-none">
           <Image
-            src="/images/graphics/C6D8453E-2D9B-4DAF-A0D9-CCBB6A478571.PNG"
+            src="/images/graphics/C6D8453E-2D9B-4DAF-A0D9-CCBB6A478571.png"
             alt=""
             width={300}
             height={300}
@@ -254,7 +254,7 @@ export default function Home() {
           {/* Decorative illustrations */}
           <div className="absolute -bottom-8 -left-8 w-32 sm:w-44 opacity-40 pointer-events-none">
             <Image
-              src="/images/graphics/BDF28BDB-5FDD-460F-9826-6FFE4C2F9444.jpeg"
+              src="/images/graphics/BDF28BDB-5FDD-460F-9826-6FFE4C2F9444.png"
               alt=""
               width={300}
               height={300}
@@ -264,7 +264,7 @@ export default function Home() {
           </div>
           <div className="absolute -top-8 -right-8 w-24 sm:w-36 opacity-30 pointer-events-none rotate-[-10deg]">
             <Image
-              src="/images/graphics/A5B42D87-6D39-4B6E-9F26-5001B574AE6A.jpg"
+              src="/images/graphics/A5B42D87-6D39-4B6E-9F26-5001B574AE6A.png"
               alt=""
               width={300}
               height={300}
@@ -391,7 +391,7 @@ export default function Home() {
       <section className="py-12 animate-on-scroll text-center">
         <div className="max-w-xs mx-auto">
           <Image
-            src="/images/graphics/Untitled - May 22, 2026 at 01.07.53.PNG"
+            src="/images/graphics/Untitled - May 22, 2026 at 01.07.53.png"
             alt="The Manuels - couple illustration with heart"
             width={400}
             height={400}
@@ -429,7 +429,7 @@ export default function Home() {
       <section className="pt-12 pb-4 animate-on-scroll text-center">
         <div className="max-w-sm mx-auto">
           <Image
-            src="/images/graphics/8B4E9D0B-50D5-486B-A6D4-28C817B0A5A8.PNG"
+            src="/images/graphics/8B4E9D0B-50D5-486B-A6D4-28C817B0A5A8.png"
             alt="Andrew and Kayla driving off in convertible"
             width={600}
             height={400}

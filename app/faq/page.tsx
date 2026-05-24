@@ -222,7 +222,7 @@ export default function FAQPage() {
             <h2 className="font-heading mb-4 text-2xl text-deep-sage">
               {category.title}
             </h2>
-            <div className="rounded-xl border border-sage/30 bg-white/50 px-6">
+            <div className="rounded-xl border border-pink/30 bg-pink/15 px-6">
               {category.items.map((item, itemIdx) => {
                 const key = `${catIdx}-${itemIdx}`;
                 return (
