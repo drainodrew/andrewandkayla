@@ -207,13 +207,14 @@ function RegistryCard({
           )}
 
           {honeymoon ? (
-            <button
-              type="button"
-              onClick={() => onClaim(item.id, null)}
-              className="w-full rounded-full bg-pink px-5 py-2.5 text-sm font-medium text-dark transition-colors hover:bg-pink/80 active:bg-pink/70 focus:outline-none focus:ring-2 focus:ring-sage"
+            <a
+              href="https://venmo.com/drainodrew"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="w-full block text-center rounded-full bg-pink px-5 py-2.5 text-sm font-medium text-dark transition-colors hover:bg-pink/80 active:bg-pink/70 focus:outline-none focus:ring-2 focus:ring-sage"
             >
-              Contribute
-            </button>
+              Contribute via Venmo
+            </a>
           ) : isPurchased ? (
             <span className="text-sm text-dark/40">Thank you!</span>
           ) : isPendingByMe ? (
