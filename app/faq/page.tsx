@@ -30,7 +30,7 @@ const faqData: FAQCategory[] = [
       {
         question: "What is the dress code?",
         answer:
-          "Garden Formal. For the guys, think linen suits, loafers or cowboy boots, and a tie, bow tie, or bolo tie. For the ladies, cocktail dresses or anything that makes you feel amazing. Nashville in late August is warm, so lightweight fabrics are your friend. Check out our What to Wear page for inspiration.",
+          "Summer Formal. For the guys, think linen suits, loafers or cowboy boots, and a tie, bow tie, or bolo tie. For the ladies, cocktail dresses or anything that makes you feel amazing. Nashville in late August is warm, so lightweight fabrics are your friend.",
       },
       {
         question: "Will the ceremony and reception be at the same location?",
@@ -158,18 +158,18 @@ function AccordionItem({
   onToggle: () => void;
 }) {
   return (
-    <div className="border-b border-sage/40 last:border-b-0">
+    <div className="border-b border-deep-sage/20 last:border-b-0">
       <button
         type="button"
         onClick={onToggle}
         aria-expanded={isOpen}
         className="flex w-full items-center justify-between gap-4 py-5 text-left transition-colors hover:text-deep-sage focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pink"
       >
-        <span className="text-lg font-medium text-dark">{item.question}</span>
+        <span className="text-lg font-medium text-deep-sage">{item.question}</span>
         <span
           aria-hidden="true"
           className={`shrink-0 text-2xl leading-none transition-transform duration-300 ${
-            isOpen ? "rotate-45 text-pink" : "text-sage"
+            isOpen ? "rotate-45 text-deep-sage" : "text-deep-sage/50"
           }`}
         >
           +
@@ -182,7 +182,7 @@ function AccordionItem({
         }}
       >
         <div className="overflow-hidden min-h-0">
-          <div className="pb-5 text-dark/80 leading-relaxed">{item.answer}</div>
+          <div className="pb-5 text-deep-sage/80 leading-relaxed">{item.answer}</div>
         </div>
       </div>
     </div>
