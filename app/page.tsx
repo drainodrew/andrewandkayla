@@ -68,9 +68,6 @@ export default function Home() {
             width={1800}
             height={600}
             className="w-full h-auto object-contain mix-blend-multiply"
-            style={{
-              filter: "sepia(100%) hue-rotate(60deg) saturate(40%) brightness(1.1) opacity(0.85)",
-            }}
             priority
           />
         </div>
