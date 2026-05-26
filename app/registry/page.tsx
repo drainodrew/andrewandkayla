@@ -139,7 +139,7 @@ function RegistryCard({
 
   return (
     <div
-      className={`group relative rounded-2xl border bg-white overflow-hidden transition-all duration-300 ${
+      className={`group relative rounded-2xl border bg-sage/20 overflow-hidden transition-all duration-300 ${
         isPurchased
           ? "border-sage/20 opacity-60"
           : "border-sage/20 hover:shadow-lg hover:border-pink/40"

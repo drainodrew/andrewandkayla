@@ -54,16 +54,8 @@ export default function Home() {
     <div>
       {/* Hero section */}
       <section className="flex flex-col items-center text-center">
-        {/* "We're Getting Married!" - above illustration on mobile for context */}
-        <p
-          className="text-base sm:text-lg text-deep-sage mt-6 sm:mt-8 mb-4 tracking-[0.15em] px-4"
-          style={{ fontFamily: "var(--font-hero)" }}
-        >
-          We&apos;re Getting Married!
-        </p>
-
         {/* Hero illustration - full width, sage green tinted */}
-        <div className="w-full px-4 sm:px-8">
+        <div className="w-full px-4 sm:px-8 sm:pt-2">
           <Image
             src="/images/graphics/hero-illustration-v2.png"
             alt="Illustration of Andrew and Kayla dancing at their wedding celebration"
@@ -79,19 +71,42 @@ export default function Home() {
 
         {/* Text content */}
         <div className="flex flex-col items-center px-4 mt-6 sm:mt-10">
+          <p
+            className="text-base sm:text-lg text-[#5C3D2E]/40 mb-3 tracking-[0.15em]"
+            style={{ fontFamily: "var(--font-hero)" }}
+          >
+            We&apos;re Getting Married!
+          </p>
 
+          {/* Mobile: stacked name */}
           <h1
-            className="text-5xl sm:text-7xl lg:text-8xl text-pink mb-4 sm:mb-6"
+            className="sm:hidden text-5xl text-pink mb-4 leading-tight"
+            style={{ fontFamily: "var(--font-hero)" }}
+          >
+            Andrew<br />&<br />Kayla
+          </h1>
+          {/* Desktop: single line name */}
+          <h1
+            className="hidden sm:block text-7xl lg:text-8xl text-pink mb-6"
             style={{ fontFamily: "var(--font-hero)" }}
           >
             Andrew & Kayla
           </h1>
 
-          <p className="text-xs sm:text-sm uppercase tracking-[0.25em] text-[#5C3D2E] mb-1 sm:mb-2">
+          <p className="text-xs sm:text-sm uppercase tracking-[0.25em] text-sage/70 mb-1 sm:mb-2">
             August 29, 2026
           </p>
+          {/* Mobile: two lines for venue */}
+          <div
+            className="sm:hidden text-base text-[#5C3D2E]/40 mb-8 text-center"
+            style={{ fontFamily: "var(--font-hero)" }}
+          >
+            <p>Belle Meade Mansion</p>
+            <p>Nashville, Tennessee</p>
+          </div>
+          {/* Desktop: single line for venue */}
           <p
-            className="text-base sm:text-lg text-deep-sage mb-8 sm:mb-10"
+            className="hidden sm:block text-lg text-[#5C3D2E]/40 mb-10"
             style={{ fontFamily: "var(--font-hero)" }}
           >
             Belle Meade Mansion &nbsp;&bull;&nbsp; Nashville, Tennessee
@@ -101,10 +116,10 @@ export default function Home() {
 
           <Link
             href="/rsvp"
-            className="mt-8 inline-block rounded-lg bg-pink px-8 py-3 text-[#5C3D2E] transition-colors hover:bg-pink/80 focus:outline-none focus:ring-2 focus:ring-sage"
+            className="mt-8 inline-block rounded-lg bg-pink px-8 py-3 text-[#5C3D2E]/40 transition-colors hover:bg-pink/80 focus:outline-none focus:ring-2 focus:ring-sage"
             style={{ fontFamily: "var(--font-hero)" }}
           >
-            RSVP Here
+            RSVP
           </Link>
 
           <div className="mb-24 sm:mb-32" />

@@ -12,7 +12,7 @@
 :root {
   --color-pink: #FADADD;
   --color-sage: #B5B88C;
-  --color-cream: #FAF5EE;
+  --color-cream: #FBF1E4;
   --color-dark: #2A2A2A;
   --color-deep-sage: #4A5530;
 
@@ -57,6 +57,13 @@ h1, h2, h3, h4, h5, h6 {
   100% { opacity: 1; transform: translateY(0) scale(1); }
 }
 
+/* Mobile-only gallery scroll reveal: gentle fade + scale.
+   Desktop uses hover states instead (no scroll animation). */
+@keyframes gallery-reveal {
+  from { opacity: 0; transform: scale(0.97); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
 .animate-on-scroll {
   opacity: 0;
   transform: translateY(40px);
@@ -71,4 +78,15 @@ h1, h2, h3, h4, h5, h6 {
 }
 .bounce-on-scroll.is-visible {
   animation: bounce-in-up 0.9s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+}
+
+/* Gallery: mobile-only scroll reveal, desktop uses hover */
+@media (max-width: 639px) {
+  .gallery-scroll-reveal {
+    opacity: 0;
+    transform: scale(0.97);
+  }
+  .gallery-scroll-reveal.is-visible {
+    animation: gallery-reveal 0.6s ease-out both;
+  }
 }

@@ -1,13 +1,50 @@
+import { cookies } from "next/headers";
+import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/server";
 
-export const revalidate = 3600; // revalidate every hour
+function mapsUrl(address: string) {
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(address)}`;
+}
 
 export default async function SchedulePage() {
   const supabase = createServiceClient();
-  const { data: events } = await supabase
+
+  // Read the RSVP cookie to identify the current party
+  const cookieStore = await cookies();
+  const partyId = cookieStore.get("rsvp_party_id")?.value;
+
+  // Fetch all events
+  const { data: allEvents } = await supabase
     .from("events")
     .select("*")
     .order("sort_order", { ascending: true });
+
+  let events = allEvents || [];
+
+  // If we know who the guest is, filter out events they're not invited to.
+  // The rehearsal dinner is invite-only (requires a party_events row).
+  // If no cookie, show only non-restricted events (game day + wedding).
+  if (partyId) {
+    // Fetch which events this party is explicitly invited to
+    const { data: partyEvents } = await supabase
+      .from("party_events")
+      .select("event_id")
+      .eq("party_id", partyId);
+
+    const invitedEventIds = new Set(
+      (partyEvents || []).map((pe) => pe.event_id)
+    );
+
+    // Show an event if:
+    // 1. The party has a party_events row for it, OR
+    // 2. The event is NOT the rehearsal dinner (universal events)
+    events = events.filter(
+      (e) => invitedEventIds.has(e.id) || e.slug !== "rehearsal-dinner"
+    );
+  } else {
+    // No cookie: hide the rehearsal dinner entirely
+    events = events.filter((e) => e.slug !== "rehearsal-dinner");
+  }
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-16">
@@ -19,7 +56,7 @@ export default async function SchedulePage() {
         closer.
       </p>
 
-      {!events || events.length === 0 ? (
+      {events.length === 0 ? (
         <p className="text-center text-dark/60">
           Events will be posted here soon. Check back!
         </p>
@@ -28,7 +65,7 @@ export default async function SchedulePage() {
           {events.map((event) => (
             <div
               key={event.id}
-              className="rounded-xl border border-sage/30 bg-white p-6"
+              className="rounded-xl border border-sage/30 bg-sage/20 p-6"
             >
               <h2 className="text-xl font-heading text-deep-sage mb-2">
                 {event.name}
@@ -36,7 +73,7 @@ export default async function SchedulePage() {
 
               <div className="space-y-1 mb-4">
                 {event.starts_at && (
-                  <p className="text-sm text-dark/70">
+                  <p className="text-sm text-[#5C3D2E]">
                     {new Date(event.starts_at).toLocaleDateString("en-US", {
                       weekday: "long",
                       month: "long",
@@ -62,22 +99,34 @@ export default async function SchedulePage() {
                 )}
 
                 {event.location && (
-                  <p className="text-sm text-dark/70">{event.location}</p>
+                  <p className="text-sm text-[#5C3D2E]">{event.location}</p>
                 )}
 
                 {event.address && (
-                  <p className="text-sm text-dark/50">{event.address}</p>
+                  <p className="text-sm">
+                    <a
+                      href={mapsUrl(event.address)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#5C3D2E] underline underline-offset-2 decoration-sage hover:text-deep-sage transition-colors"
+                    >
+                      {event.address}
+                    </a>
+                  </p>
                 )}
 
                 {event.dress_code && (
-                  <p className="text-sm text-dark/70">
-                    Dress code: {event.dress_code}
+                  <p className="text-sm text-[#5C3D2E] mt-3">
+                    Dress code:{" "}
+                    <Link href="/what-to-wear" className="text-[#5C3D2E] underline underline-offset-2 decoration-sage hover:text-deep-sage transition-colors">
+                      {event.dress_code}
+                    </Link>
                   </p>
                 )}
               </div>
 
               {event.description && (
-                <p className="text-dark/70">{event.description}</p>
+                <p className="text-[#5C3D2E]">{event.description}</p>
               )}
             </div>
           ))}

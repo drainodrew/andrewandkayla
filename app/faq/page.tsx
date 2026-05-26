@@ -30,7 +30,7 @@ const faqData: FAQCategory[] = [
       {
         question: "What is the dress code?",
         answer:
-          "Garden Formal. For the guys, think linen suits, loafers or cowboy boots, and a tie, bow tie, or bolo tie. For the ladies, cocktail dresses or anything that makes you feel amazing. Nashville in late August is warm, so lightweight fabrics are your friend.",
+          <>Garden Formal. For the guys, think linen suits, loafers or cowboy boots, and a tie, bow tie, or bolo tie. Ladies are encouraged to wear floor-length dresses in soft summer colors, florals, and romantic textures. Check out our <a href="/what-to-wear" className="underline text-deep-sage hover:text-pink">What to Wear</a> page for inspiration!</>,
       },
       {
         question: "Will the ceremony and reception be at the same location?",

@@ -107,7 +107,7 @@ export default function ThingsToDoPage() {
               {category.spots.map((spot) => (
                 <div
                   key={spot.name}
-                  className="rounded-xl border border-sage/30 bg-white p-6"
+                  className="rounded-xl border border-sage/30 bg-sage/20 p-6"
                 >
                   <div className="flex items-start justify-between gap-4 mb-2">
                     <div className="flex items-center gap-3">

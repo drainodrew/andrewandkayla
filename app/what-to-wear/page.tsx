@@ -17,7 +17,7 @@ function useScrollAnimations() {
       { threshold: 0.1, rootMargin: "0px 0px -40px 0px" }
     );
     const elements = document.querySelectorAll(
-      ".animate-on-scroll, .bounce-on-scroll"
+      ".animate-on-scroll, .bounce-on-scroll, .gallery-scroll-reveal"
     );
     elements.forEach((el) => observer.observe(el));
     return () => observer.disconnect();
@@ -97,6 +97,26 @@ const INSPO_IMAGES_UNSHUFFLED: InspoImage[] = [
   { src: "/images/photos/attire/IMG_5621.PNG", alt: "Style guide", aspect: "tall" },
   { src: "/images/photos/attire/IMG_5618.JPG", alt: "Accessory", aspect: "square" },
   { src: "/images/photos/attire/IMG_5622.JPG", alt: "Jewelry detail", aspect: "square" },
+  { src: "/images/photos/attire/IMG_5594.jpeg", alt: "Garden party outfit", aspect: "tall" },
+  { src: "/images/photos/attire/IMG_5631.jpeg", alt: "Style inspiration", aspect: "tall" },
+  { src: "/images/photos/attire/IMG_5635.jpeg", alt: "Wedding guest look", aspect: "tall" },
+  { src: "/images/photos/attire/IMG_5636.jpeg", alt: "Formal attire", aspect: "tall" },
+  { src: "/images/photos/attire/IMG_5637.jpeg", alt: "Outfit inspiration", aspect: "tall" },
+  { src: "/images/photos/attire/IMG_5638.jpeg", alt: "Garden formal style", aspect: "tall" },
+  { src: "/images/photos/attire/IMG_5641.jpeg", alt: "Dress inspiration", aspect: "tall" },
+  { src: "/images/photos/attire/IMG_5645.jpeg", alt: "Elegant look", aspect: "tall" },
+  { src: "/images/photos/attire/IMG_5649.jpeg", alt: "Style detail", aspect: "tall" },
+  { src: "/images/photos/attire/IMG_5650.jpeg", alt: "Formal outfit", aspect: "tall" },
+  { src: "/images/photos/attire/IMG_5661.jpeg", alt: "Wedding attire", aspect: "tall" },
+  { src: "/images/photos/attire/IMG_5662.JPG", alt: "Garden party style", aspect: "tall" },
+  { src: "/images/photos/attire/IMG_5669.jpeg", alt: "Guest outfit", aspect: "tall" },
+  { src: "/images/photos/attire/IMG_5673.jpeg", alt: "Formal inspiration", aspect: "tall" },
+  { src: "/images/photos/attire/IMG_5675.JPG", alt: "Style moment", aspect: "tall" },
+  { src: "/images/photos/attire/IMG_5679.jpeg", alt: "Attire detail", aspect: "tall" },
+  { src: "/images/photos/attire/IMG_5682.JPG", alt: "Garden look", aspect: "tall" },
+  { src: "/images/photos/attire/IMG_5691.JPG", alt: "Suit inspiration", aspect: "tall" },
+  { src: "/images/photos/attire/IMG_5704.JPG", alt: "Formal style", aspect: "tall" },
+  { src: "/images/photos/attire/IMG_5705.jpeg", alt: "Wedding guest outfit", aspect: "tall" },
 ];
 
 // Seeded shuffle: deterministic order that looks random
@@ -111,7 +131,7 @@ function seededShuffle<T>(arr: T[], seed: number): T[] {
   return result;
 }
 
-const INSPO_IMAGES = seededShuffle(INSPO_IMAGES_UNSHUFFLED, 2026);
+const INSPO_IMAGES = seededShuffle(INSPO_IMAGES_UNSHUFFLED, 8292026);
 
 function WavyDivider() {
   return (
@@ -155,7 +175,7 @@ export default function WhatToWearPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm text-dark/70 leading-relaxed">
             <div>
               <Image
-                src="/images/graphics/fellas-illustration.png"
+                src="/images/graphics/fellas-v2.png"
                 alt="Illustrated men in garden formal attire"
                 width={800}
                 height={500}
@@ -170,7 +190,7 @@ export default function WhatToWearPage() {
             </div>
             <div>
               <Image
-                src="/images/graphics/ladies-illustration.png"
+                src="/images/graphics/ladies-v2.png"
                 alt="Illustrated women in garden formal attire"
                 width={800}
                 height={500}
@@ -178,9 +198,8 @@ export default function WhatToWearPage() {
               />
               <h3 className="font-heading text-deep-sage text-base mb-2">For the Ladies</h3>
               <p>
-                Cocktail dresses, flowy midi or maxi dresses, jumpsuits,
-                elegant separates. Florals, pastels, and bold colors all welcome.
-                Consider wedges or block heels for the lawn.
+                Ladies are encouraged to wear floor-length dresses in soft summer
+                colors, florals, and romantic textures.
               </p>
             </div>
           </div>
@@ -195,10 +214,10 @@ export default function WhatToWearPage() {
 
       {/* Masonry-style gallery */}
       <div className="columns-2 sm:columns-3 gap-3 sm:gap-4 [column-fill:_balance]">
-        {INSPO_IMAGES.map((img) => (
+        {INSPO_IMAGES.map((img, i) => (
           <div
             key={img.src}
-            className="break-inside-avoid mb-3 sm:mb-4"
+            className="gallery-scroll-reveal break-inside-avoid mb-3 sm:mb-4"
           >
             <div className="group relative overflow-hidden rounded-2xl bg-cream border-2 border-transparent hover:border-pink/40 transition-all duration-300 hover:shadow-lg">
               <Image

@@ -105,7 +105,7 @@ export default function LodgingPage() {
         <h2 className="text-2xl font-heading text-deep-sage mb-4">
           Getting There
         </h2>
-        <div className="rounded-xl border border-sage/30 bg-white p-6 space-y-4">
+        <div className="rounded-xl border border-sage/30 bg-sage/20 p-6 space-y-4">
           <div>
             <h3 className="font-medium text-dark mb-1">By Air</h3>
             <p className="text-sm text-dark/70">
@@ -117,8 +117,16 @@ export default function LodgingPage() {
           <div>
             <h3 className="font-medium text-dark mb-1">By Car</h3>
             <p className="text-sm text-dark/70">
-              Belle Meade Mansion is located at 110 Leake Ave, Nashville, TN
-              37205. There is parking available at the venue.
+              Belle Meade Mansion is located at{" "}
+              <a
+                href="https://www.google.com/maps/search/?api=1&query=110+Leake+Ave%2C+Nashville%2C+TN+37205"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#5C3D2E] underline underline-offset-2 decoration-sage hover:text-deep-sage transition-colors"
+              >
+                110 Leake Ave, Nashville, TN 37205
+              </a>
+              . There is parking available at the venue.
             </p>
           </div>
           <div>
@@ -157,7 +165,7 @@ export default function LodgingPage() {
                   {section.hotels.map((hotel) => (
                     <div
                       key={hotel.name}
-                      className="rounded-xl border border-sage/30 bg-white p-5"
+                      className="rounded-xl border border-sage/30 bg-sage/20 p-5"
                     >
                       <div className="flex items-start justify-between gap-4">
                         <h4 className="font-medium text-dark">{hotel.name}</h4>
@@ -172,7 +180,7 @@ export default function LodgingPage() {
                   ))}
                 </div>
               ) : (
-                <div className="rounded-xl border border-sage/30 bg-white p-5">
+                <div className="rounded-xl border border-sage/30 bg-sage/20 p-5">
                   <p className="text-sm text-dark/70 italic">
                     Seriously though, reach out. We&apos;ll figure something out.
                   </p>
@@ -188,10 +196,17 @@ export default function LodgingPage() {
         <h2 className="text-2xl font-heading text-deep-sage mb-4">
           The Venue
         </h2>
-        <div className="rounded-xl border border-sage/30 bg-white p-6">
+        <div className="rounded-xl border border-sage/30 bg-sage/20 p-6">
           <h3 className="font-medium text-dark mb-1">Belle Meade Mansion</h3>
-          <p className="text-sm text-dark/70 mb-3">
-            110 Leake Ave, Nashville, TN 37205
+          <p className="text-sm mb-3">
+            <a
+              href="https://www.google.com/maps/search/?api=1&query=110+Leake+Ave%2C+Nashville%2C+TN+37205"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#5C3D2E] underline underline-offset-2 decoration-sage hover:text-deep-sage transition-colors"
+            >
+              110 Leake Ave, Nashville, TN 37205
+            </a>
           </p>
           <p className="text-sm text-dark/70">
             A historic estate in the heart of Nashville&apos;s Belle Meade
