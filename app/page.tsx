@@ -67,7 +67,7 @@ export default function Home() {
             alt="Illustration of Andrew and Kayla dancing at their wedding celebration"
             width={1800}
             height={600}
-            className="w-full h-auto object-contain mix-blend-multiply"
+            className="w-full h-auto object-contain"
             priority
           />
         </div>
