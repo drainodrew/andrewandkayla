@@ -35,15 +35,37 @@ loadEnv();
 
 const events = [
   {
+    slug: "friday-game-day",
+    name: "Friday Festivities",
+    starts_at: "2026-08-28T12:30:00-05:00",
+    ends_at: "2026-08-28T15:30:00-05:00",
+    location: "1422 Franklin Rd",
+    address: "1422 Franklin Rd, Brentwood, TN 37027",
+    dress_code: null,
+    description: "Join us for an afternoon of games, snacks & friendly competition.",
+    sort_order: 1,
+  },
+  {
+    slug: "rehearsal-dinner",
+    name: "Rehearsal Dinner",
+    starts_at: "2026-08-28T18:15:00-05:00",
+    ends_at: "2026-08-28T21:30:00-05:00",
+    location: "Brentwood Country Club",
+    address: "5123 Country Club Dr, Brentwood, TN 37027",
+    dress_code: "Garden Formal",
+    description: "Dinner and toasts the night before the big day.",
+    sort_order: 2,
+  },
+  {
     slug: "wedding-ceremony-reception",
     name: "Wedding Ceremony & Reception",
     starts_at: "2026-08-29T17:00:00-05:00",
     ends_at: "2026-08-29T23:00:00-05:00",
     location: "Belle Meade Mansion",
     address: "110 Leake Ave, Nashville, TN 37205",
-    dress_code: "Summer Formal",
+    dress_code: "Garden Formal",
     description: "Join us as we say our vows and celebrate with dinner and dancing.",
-    sort_order: 1,
+    sort_order: 3,
   },
 ];
 

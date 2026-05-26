@@ -54,8 +54,16 @@ export default function Home() {
     <div>
       {/* Hero section */}
       <section className="flex flex-col items-center text-center">
+        {/* "We're Getting Married!" - above illustration on mobile for context */}
+        <p
+          className="text-base sm:text-lg text-deep-sage mt-6 sm:mt-8 mb-4 tracking-[0.15em] px-4"
+          style={{ fontFamily: "var(--font-hero)" }}
+        >
+          We&apos;re Getting Married!
+        </p>
+
         {/* Hero illustration - full width, sage green tinted */}
-        <div className="w-full px-4 sm:px-8 pt-2">
+        <div className="w-full px-4 sm:px-8">
           <Image
             src="/images/graphics/hero-illustration-v2.png"
             alt="Illustration of Andrew and Kayla dancing at their wedding celebration"
@@ -71,35 +79,6 @@ export default function Home() {
 
         {/* Text content */}
         <div className="flex flex-col items-center px-4 mt-6 sm:mt-10">
-          <p
-            className="text-base sm:text-lg text-deep-sage mb-3 tracking-[0.15em]"
-            style={{ fontFamily: "var(--font-hero)" }}
-          >
-            We&apos;re Getting Married!
-          </p>
-
-          {/* Decorative leaf flourish */}
-          <div className="flex items-center gap-0 mb-3">
-            <svg width="80" height="16" viewBox="0 0 80 16" className="text-deep-sage/50">
-              {/* Left branch */}
-              <line x1="0" y1="8" x2="34" y2="8" stroke="currentColor" strokeWidth="0.75" />
-              {/* Leaves on left */}
-              <path d="M12 8 Q14 4 18 6 Q14 7 12 8Z" fill="currentColor" opacity="0.7" />
-              <path d="M20 8 Q22 4 26 6 Q22 7 20 8Z" fill="currentColor" opacity="0.7" />
-              <path d="M14 8 Q16 12 20 10 Q16 9 14 8Z" fill="currentColor" opacity="0.6" />
-              <path d="M22 8 Q24 12 28 10 Q24 9 22 8Z" fill="currentColor" opacity="0.6" />
-              {/* Center leaf cluster */}
-              <path d="M36 8 Q40 2 44 8 Q40 14 36 8Z" fill="currentColor" opacity="0.5" />
-              <path d="M38 6 Q40 1 42 6" fill="none" stroke="currentColor" strokeWidth="0.5" />
-              {/* Right branch */}
-              <line x1="46" y1="8" x2="80" y2="8" stroke="currentColor" strokeWidth="0.75" />
-              {/* Leaves on right */}
-              <path d="M54 8 Q56 4 60 6 Q56 7 54 8Z" fill="currentColor" opacity="0.7" />
-              <path d="M62 8 Q64 4 68 6 Q64 7 62 8Z" fill="currentColor" opacity="0.7" />
-              <path d="M56 8 Q58 12 62 10 Q58 9 56 8Z" fill="currentColor" opacity="0.6" />
-              <path d="M64 8 Q66 12 70 10 Q66 9 64 8Z" fill="currentColor" opacity="0.6" />
-            </svg>
-          </div>
 
           <h1
             className="text-5xl sm:text-7xl lg:text-8xl text-pink mb-4 sm:mb-6"
@@ -147,7 +126,7 @@ export default function Home() {
             <Link
               key={link.href}
               href={link.href}
-              className="rounded-xl border border-sage/30 bg-white p-4 text-sm font-medium text-dark transition-colors hover:border-pink hover:bg-pink/5 focus:outline-none focus:ring-2 focus:ring-sage"
+              className="rounded-xl border border-sage/30 bg-sage/20 p-4 text-sm font-medium text-[#5C3D2E] transition-colors hover:border-pink hover:bg-pink/5 focus:outline-none focus:ring-2 focus:ring-sage"
             >
               {link.label}
             </Link>

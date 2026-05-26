@@ -10,11 +10,11 @@
 }
 
 :root {
-  --color-pink: #F8BBDB;
-  --color-sage: #C5D0B3;
+  --color-pink: #FADADD;
+  --color-sage: #B5B88C;
   --color-cream: #FAF5EE;
   --color-dark: #2A2A2A;
-  --color-deep-sage: #5C6B4E;
+  --color-deep-sage: #4A5530;
 
   --background: var(--color-cream);
   --foreground: var(--color-dark);

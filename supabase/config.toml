@@ -1,2 +1,6 @@
-[project]
-id = "rqpjnfwjftqknhmwxitp"
+[api]
+enabled = true
+port = 54321
+
+[db]
+port = 54322

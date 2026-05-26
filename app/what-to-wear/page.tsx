@@ -32,75 +32,58 @@ interface InspoImage {
 }
 
 /**
- * Curated inspiration photos, organized roughly by visual balance
- * for a nice masonry flow.
+ * Inspiration photos, shuffled for variety.
+ * Seeded shuffle so the order is stable across builds.
  */
-const INSPO_IMAGES: InspoImage[] = [
-  // Row 1
+const INSPO_IMAGES_UNSHUFFLED: InspoImage[] = [
   { src: "/images/photos/attire/bond.jpg", alt: "Linen suit inspiration", aspect: "square" },
   { src: "/images/photos/attire/IMG_5582.JPG", alt: "Floral dress inspiration", aspect: "tall" },
   { src: "/images/photos/attire/western.jpg", alt: "Western formal inspiration", aspect: "tall" },
-  // Row 2
   { src: "/images/photos/attire/IMG_5598.JPG", alt: "Garden party champagne toast", aspect: "square" },
   { src: "/images/photos/attire/cigar.jpg", alt: "Linen suit with patterned tie", aspect: "tall" },
   { src: "/images/photos/attire/IMG_5584.JPG", alt: "Floral maxi dress", aspect: "tall" },
-  // Row 3
   { src: "/images/photos/attire/mj1.jpg", alt: "Style inspiration", aspect: "square" },
   { src: "/images/photos/attire/IMG_5587.JPG", alt: "Garden wedding outfit", aspect: "tall" },
   { src: "/images/photos/attire/scarf-linen.jpg", alt: "Scarf and linen look", aspect: "tall" },
-  // Row 4
   { src: "/images/photos/attire/IMG_5601.JPG", alt: "Garden table setting", aspect: "tall" },
   { src: "/images/photos/attire/western2.jpg", alt: "Western suit inspiration", aspect: "square" },
   { src: "/images/photos/attire/IMG_5583.JPG", alt: "Dress inspiration", aspect: "tall" },
-  // Row 5
   { src: "/images/photos/attire/gere.jpg", alt: "Classic suit look", aspect: "square" },
   { src: "/images/photos/attire/IMG_5612.JPG", alt: "Sage green suit with drinks", aspect: "tall" },
   { src: "/images/photos/attire/IMG_5585.JPG", alt: "Outfit inspiration", aspect: "tall" },
-  // Row 6
   { src: "/images/photos/attire/mj3.jpg", alt: "Golf course style", aspect: "tall" },
   { src: "/images/photos/attire/IMG_5605.JPG", alt: "Elegant dress at garden party", aspect: "tall" },
   { src: "/images/photos/attire/brownwestern.jpg", alt: "Brown western look", aspect: "square" },
-  // Row 7
   { src: "/images/photos/attire/highxtar-Tyler-The-Creator-GOLF-Le-Fleur5.jpg", alt: "Bold color suit", aspect: "tall" },
   { src: "/images/photos/attire/IMG_5586.JPG", alt: "Dress inspiration", aspect: "tall" },
   { src: "/images/photos/attire/bond2.jpg", alt: "Casual suit look", aspect: "square" },
-  // Row 8
   { src: "/images/photos/attire/IMG_5599.JPG", alt: "Garden setting", aspect: "tall" },
   { src: "/images/photos/attire/mj2.jpg", alt: "Style icon", aspect: "square" },
   { src: "/images/photos/attire/IMG_5589.JPG", alt: "Outfit inspiration", aspect: "tall" },
-  // Row 9
   { src: "/images/photos/attire/western3.jpg", alt: "Western style formal", aspect: "tall" },
   { src: "/images/photos/attire/IMG_5603.JPG", alt: "Garden party style", aspect: "tall" },
   { src: "/images/photos/attire/doublep.jpg", alt: "Double breasted suit", aspect: "square" },
-  // Row 10
   { src: "/images/photos/attire/IMG_5600.JPG", alt: "Outdoor wedding vibe", aspect: "square" },
   { src: "/images/photos/attire/rando.jpg", alt: "Suit inspiration", aspect: "tall" },
   { src: "/images/photos/attire/IMG_5604.JPG", alt: "Garden party look", aspect: "tall" },
-  // Row 11
   { src: "/images/photos/attire/mj4.jpg", alt: "Style icon moment", aspect: "square" },
   { src: "/images/photos/attire/IMG_5610.JPG", alt: "Wedding guest outfit", aspect: "tall" },
   { src: "/images/photos/attire/timmy.jpg", alt: "Bold suit style", aspect: "tall" },
-  // Row 12
   { src: "/images/photos/attire/IMG_5590.JPG", alt: "Accessory details", aspect: "square" },
   { src: "/images/photos/attire/IMG_5614.JPG", alt: "Garden attire", aspect: "tall" },
   { src: "/images/photos/attire/jnick.jpg", alt: "Smart casual look", aspect: "square" },
-  // Row 13
   { src: "/images/photos/attire/miami.jpg", alt: "Relaxed formal", aspect: "square" },
   { src: "/images/photos/attire/IMG_5616.JPG", alt: "Outfit inspiration", aspect: "tall" },
   { src: "/images/photos/attire/IMG_5620.JPG", alt: "Mariachi-inspired formal", aspect: "tall" },
-  // Row 14
   { src: "/images/photos/attire/oldaiman.jpg", alt: "Dapper look", aspect: "tall" },
   { src: "/images/photos/attire/IMG_5615.JPG", alt: "Garden style", aspect: "tall" },
   { src: "/images/photos/attire/western4.jpg", alt: "Western hat look", aspect: "square" },
-  // Row 15
   { src: "/images/photos/attire/IMG_5588.WEBP", alt: "Wedding guest style", aspect: "tall" },
   { src: "/images/photos/attire/mj5.jpg", alt: "Style moment", aspect: "square" },
   { src: "/images/photos/attire/IMG_5611.JPG", alt: "Garden formal look", aspect: "tall" },
-  // Row 16
   { src: "/images/photos/attire/IMG_5602.JPG", alt: "Table setting inspiration", aspect: "tall" },
   { src: "/images/photos/attire/ald.jpg", alt: "Street style formal", aspect: "square" },
   { src: "/images/photos/attire/IMG_5617.JPG", alt: "Garden party guest", aspect: "tall" },
-  // Remaining
   { src: "/images/photos/attire/IMG_5606.JPG", alt: "Style detail", aspect: "square" },
   { src: "/images/photos/attire/IMG_5607.JPG", alt: "Outfit detail", aspect: "square" },
   { src: "/images/photos/attire/IMG_5608.JPG", alt: "Accessory detail", aspect: "square" },
@@ -115,6 +98,20 @@ const INSPO_IMAGES: InspoImage[] = [
   { src: "/images/photos/attire/IMG_5618.JPG", alt: "Accessory", aspect: "square" },
   { src: "/images/photos/attire/IMG_5622.JPG", alt: "Jewelry detail", aspect: "square" },
 ];
+
+// Seeded shuffle: deterministic order that looks random
+function seededShuffle<T>(arr: T[], seed: number): T[] {
+  const result = [...arr];
+  let s = seed;
+  for (let i = result.length - 1; i > 0; i--) {
+    s = (s * 16807 + 0) % 2147483647;
+    const j = s % (i + 1);
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+const INSPO_IMAGES = seededShuffle(INSPO_IMAGES_UNSHUFFLED, 2026);
 
 function WavyDivider() {
   return (
@@ -157,6 +154,13 @@ export default function WhatToWearPage() {
         <div className="rounded-3xl border-2 border-dashed border-sage/40 bg-pink/5 p-6 sm:p-8">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-sm text-dark/70 leading-relaxed">
             <div>
+              <Image
+                src="/images/graphics/fellas-illustration.png"
+                alt="Illustrated men in garden formal attire"
+                width={800}
+                height={500}
+                className="w-full h-auto mb-4"
+              />
               <h3 className="font-heading text-deep-sage text-base mb-2">For the Fellas</h3>
               <p>
                 Linen suits, summer-weight blazers, loafers, cowboy boots, bolo ties,
@@ -165,6 +169,13 @@ export default function WhatToWearPage() {
               </p>
             </div>
             <div>
+              <Image
+                src="/images/graphics/ladies-illustration.png"
+                alt="Illustrated women in garden formal attire"
+                width={800}
+                height={500}
+                className="w-full h-auto mb-4"
+              />
               <h3 className="font-heading text-deep-sage text-base mb-2">For the Ladies</h3>
               <p>
                 Cocktail dresses, flowy midi or maxi dresses, jumpsuits,
@@ -184,11 +195,10 @@ export default function WhatToWearPage() {
 
       {/* Masonry-style gallery */}
       <div className="columns-2 sm:columns-3 gap-3 sm:gap-4 [column-fill:_balance]">
-        {INSPO_IMAGES.map((img, i) => (
+        {INSPO_IMAGES.map((img) => (
           <div
             key={img.src}
-            className="bounce-on-scroll break-inside-avoid mb-3 sm:mb-4"
-            style={{ animationDelay: `${(i % 6) * 80}ms` }}
+            className="break-inside-avoid mb-3 sm:mb-4"
           >
             <div className="group relative overflow-hidden rounded-2xl bg-cream border-2 border-transparent hover:border-pink/40 transition-all duration-300 hover:shadow-lg">
               <Image
