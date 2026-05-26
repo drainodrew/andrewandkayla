@@ -34,20 +34,15 @@ function Countdown({ targetDate }: { targetDate: string }) {
   ];
 
   return (
-    <div className="flex justify-center items-center gap-0">
-      {units.map(({ value, label }, i) => (
-        <div key={label} className="flex items-center">
-          <div className="text-center px-4 sm:px-6">
-            <span className="block text-3xl sm:text-5xl font-heading text-pink">
-              {value}
-            </span>
-            <span className="text-[10px] sm:text-xs uppercase tracking-[0.2em] text-dark/50 mt-1 block">
-              {label}
-            </span>
-          </div>
-          {i < units.length - 1 && (
-            <div className="w-px h-10 sm:h-14 bg-dark/15" />
-          )}
+    <div className="flex justify-center gap-6 sm:gap-10">
+      {units.map(({ value, label }) => (
+        <div key={label} className="text-center">
+          <span className="block text-3xl sm:text-5xl font-heading text-pink">
+            {value}
+          </span>
+          <span className="text-[10px] sm:text-xs uppercase tracking-[0.2em] text-dark/50 mt-1 block">
+            {label}
+          </span>
         </div>
       ))}
     </div>
@@ -59,28 +54,50 @@ export default function Home() {
     <div>
       {/* Hero section */}
       <section className="flex flex-col items-center text-center">
-        {/* Hero illustration - full width, edge to edge */}
+        {/* Hero illustration - full width, sage green tinted */}
         <div className="w-full px-4 sm:px-8 pt-2">
           <Image
-            src="/images/graphics/hero-illustration.png"
+            src="/images/graphics/hero-illustration-v2.png"
             alt="Illustration of Andrew and Kayla dancing at their wedding celebration"
             width={1800}
             height={600}
-            className="w-full h-auto object-contain"
+            className="w-full h-auto object-contain mix-blend-multiply"
+            style={{
+              filter: "sepia(100%) hue-rotate(60deg) saturate(40%) brightness(1.1) opacity(0.85)",
+            }}
             priority
           />
         </div>
 
         {/* Text content */}
         <div className="flex flex-col items-center px-4 mt-6 sm:mt-10">
-          <p className="text-xs sm:text-sm uppercase tracking-[0.3em] text-deep-sage mb-4">
+          <p
+            className="text-base sm:text-lg text-deep-sage mb-3 tracking-[0.15em]"
+            style={{ fontFamily: "var(--font-hero)" }}
+          >
             We&apos;re Getting Married!
           </p>
 
-          {/* Decorative flourish */}
-          <div className="flex items-center gap-2 mb-2">
-            <svg width="24" height="12" viewBox="0 0 24 12" className="text-deep-sage/40">
-              <path d="M0 6 Q6 0 12 6 Q18 12 24 6" fill="none" stroke="currentColor" strokeWidth="1" />
+          {/* Decorative leaf flourish */}
+          <div className="flex items-center gap-0 mb-3">
+            <svg width="80" height="16" viewBox="0 0 80 16" className="text-deep-sage/50">
+              {/* Left branch */}
+              <line x1="0" y1="8" x2="34" y2="8" stroke="currentColor" strokeWidth="0.75" />
+              {/* Leaves on left */}
+              <path d="M12 8 Q14 4 18 6 Q14 7 12 8Z" fill="currentColor" opacity="0.7" />
+              <path d="M20 8 Q22 4 26 6 Q22 7 20 8Z" fill="currentColor" opacity="0.7" />
+              <path d="M14 8 Q16 12 20 10 Q16 9 14 8Z" fill="currentColor" opacity="0.6" />
+              <path d="M22 8 Q24 12 28 10 Q24 9 22 8Z" fill="currentColor" opacity="0.6" />
+              {/* Center leaf cluster */}
+              <path d="M36 8 Q40 2 44 8 Q40 14 36 8Z" fill="currentColor" opacity="0.5" />
+              <path d="M38 6 Q40 1 42 6" fill="none" stroke="currentColor" strokeWidth="0.5" />
+              {/* Right branch */}
+              <line x1="46" y1="8" x2="80" y2="8" stroke="currentColor" strokeWidth="0.75" />
+              {/* Leaves on right */}
+              <path d="M54 8 Q56 4 60 6 Q56 7 54 8Z" fill="currentColor" opacity="0.7" />
+              <path d="M62 8 Q64 4 68 6 Q64 7 62 8Z" fill="currentColor" opacity="0.7" />
+              <path d="M56 8 Q58 12 62 10 Q58 9 56 8Z" fill="currentColor" opacity="0.6" />
+              <path d="M64 8 Q66 12 70 10 Q66 9 64 8Z" fill="currentColor" opacity="0.6" />
             </svg>
           </div>
 
@@ -91,10 +108,13 @@ export default function Home() {
             Andrew & Kayla
           </h1>
 
-          <p className="text-xs sm:text-sm uppercase tracking-[0.25em] text-dark/80 mb-1 sm:mb-2">
+          <p className="text-xs sm:text-sm uppercase tracking-[0.25em] text-[#5C3D2E] mb-1 sm:mb-2">
             August 29, 2026
           </p>
-          <p className="text-xs sm:text-sm uppercase tracking-[0.2em] text-dark/60 mb-8 sm:mb-10">
+          <p
+            className="text-base sm:text-lg text-deep-sage mb-8 sm:mb-10"
+            style={{ fontFamily: "var(--font-hero)" }}
+          >
             Belle Meade Mansion &nbsp;&bull;&nbsp; Nashville, Tennessee
           </p>
 
@@ -102,22 +122,18 @@ export default function Home() {
 
           <Link
             href="/rsvp"
-            className="mt-8 sm:mt-10 inline-block rounded-sm bg-pink px-10 sm:px-14 py-3 text-sm uppercase tracking-[0.2em] font-medium text-deep-sage transition-colors hover:bg-pink/80 focus:outline-none focus:ring-2 focus:ring-sage"
+            className="mt-8 inline-block rounded-lg bg-pink px-8 py-3 text-[#5C3D2E] transition-colors hover:bg-pink/80 focus:outline-none focus:ring-2 focus:ring-sage"
+            style={{ fontFamily: "var(--font-hero)" }}
           >
-            RSVP Now
+            RSVP Here
           </Link>
 
-          {/* Down arrow */}
-          <div className="mt-8 sm:mt-12 mb-8 animate-bounce">
-            <svg width="20" height="20" viewBox="0 0 20 20" className="text-dark/30">
-              <path d="M4 7 L10 13 L16 7" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-          </div>
+          <div className="mb-24 sm:mb-32" />
         </div>
       </section>
 
       {/* Quick Links */}
-      <section className="text-center px-4 pb-16 max-w-4xl mx-auto">
+      <section className="text-center px-4 pb-16 pt-8 max-w-4xl mx-auto border-t border-sage/20">
         <h2 className="text-2xl font-heading text-deep-sage mb-8">
           While You&apos;re Here
         </h2>
