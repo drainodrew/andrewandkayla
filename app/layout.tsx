@@ -16,6 +16,19 @@ export const metadata: Metadata = {
   title: "Andrew & Kayla | August 29, 2026",
   description:
     "We're getting married! Join us Saturday, August 29, 2026 at Belle Meade Mansion in Nashville, TN.",
+  openGraph: {
+    title: "Andrew & Kayla | August 29, 2026",
+    description:
+      "We're getting married! Join us Saturday, August 29, 2026 at Belle Meade Mansion in Nashville, TN.",
+    images: [{ url: "/images/og-image.jpg", width: 1024, height: 1024 }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Andrew & Kayla | August 29, 2026",
+    description:
+      "We're getting married! Join us Saturday, August 29, 2026 at Belle Meade Mansion in Nashville, TN.",
+    images: ["/images/og-image.jpg"],
+  },
 };
 
 export default function RootLayout({
