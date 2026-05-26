@@ -9,6 +9,7 @@ import {
   confirmPurchase,
   releaseItem,
 } from "@/lib/actions/registry";
+import { useLanguage, getTranslations } from "@/lib/i18n";
 
 interface RegistryItem {
   id: string;
@@ -41,6 +42,8 @@ function ConfirmModal({
   onCancel: () => void;
   isLoading: boolean;
 }) {
+  const { lang } = useLanguage();
+  const t = getTranslations(lang);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
@@ -49,11 +52,10 @@ function ConfirmModal({
       />
       <div className="relative bg-white rounded-2xl p-8 max-w-md w-full shadow-xl">
         <h3 className="text-xl font-heading text-deep-sage mb-3">
-          Did you buy it?
+          {t.registry.confirmTitle}
         </h3>
         <p className="text-sm text-dark/70 mb-6">
-          Did you purchase the <strong>{itemName}</strong>? This helps us avoid
-          duplicate gifts.
+          {t.registry.confirmDesc} <strong>{itemName}</strong>{t.registry.confirmDesc2}
         </p>
         <div className="flex gap-3">
           <button
@@ -62,7 +64,7 @@ function ConfirmModal({
             disabled={isLoading}
             className="flex-1 rounded-lg bg-pink px-5 py-3 text-sm font-medium text-dark transition-colors hover:bg-pink/80 disabled:opacity-50"
           >
-            {isLoading ? "Saving..." : "Yes, I bought it!"}
+            {isLoading ? t.registry.saving : t.registry.confirmYes}
           </button>
           <button
             type="button"
@@ -70,7 +72,7 @@ function ConfirmModal({
             disabled={isLoading}
             className="flex-1 rounded-lg border border-sage/40 px-5 py-3 text-sm font-medium text-dark/70 transition-colors hover:bg-sage/10 disabled:opacity-50"
           >
-            No, not yet
+            {t.registry.confirmNo}
           </button>
         </div>
       </div>
@@ -79,6 +81,8 @@ function ConfirmModal({
 }
 
 function NeedRsvpModal({ onClose }: { onClose: () => void }) {
+  const { lang } = useLanguage();
+  const t = getTranslations(lang);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
@@ -87,25 +91,24 @@ function NeedRsvpModal({ onClose }: { onClose: () => void }) {
       />
       <div className="relative bg-white rounded-2xl p-8 max-w-md w-full shadow-xl text-center">
         <h3 className="text-xl font-heading text-deep-sage mb-3">
-          RSVP First!
+          {t.registry.rsvpFirstTitle}
         </h3>
         <p className="text-sm text-dark/70 mb-6">
-          We need to know who you are before you can claim a gift. RSVP real
-          quick and then come back here.
+          {t.registry.rsvpFirstDesc}
         </p>
         <div className="flex gap-3">
           <Link
             href="/rsvp"
             className="flex-1 rounded-lg bg-pink px-5 py-3 text-sm font-medium text-dark text-center transition-colors hover:bg-pink/80"
           >
-            Go to RSVP
+            {t.registry.goToRsvp}
           </Link>
           <button
             type="button"
             onClick={onClose}
             className="flex-1 rounded-lg border border-sage/40 px-5 py-3 text-sm font-medium text-dark/70 transition-colors hover:bg-sage/10"
           >
-            Maybe later
+            {t.registry.maybeLater}
           </button>
         </div>
       </div>
@@ -131,6 +134,8 @@ function RegistryCard({
   onReturn: (id: string) => void;
 }) {
   const [isHovered, setIsHovered] = useState(false);
+  const { lang } = useLanguage();
+  const rt = getTranslations(lang);
   const honeymoon = isHoneymoonFund(item);
   const isPurchased = item.status === "purchased" && !honeymoon;
   const isPendingByMe = item.status === "pending" && item.claimed_by_me && !honeymoon;
@@ -149,7 +154,7 @@ function RegistryCard({
     >
       {isPurchased && (
         <div className="absolute top-4 right-4 z-10 rounded-full bg-sage/80 px-3 py-1 text-xs font-medium text-white">
-          Purchased
+          {rt.registry.purchased}
         </div>
       )}
 
@@ -213,21 +218,21 @@ function RegistryCard({
               rel="noopener noreferrer"
               className="w-full block text-center rounded-full bg-pink px-5 py-2.5 text-sm font-medium text-dark transition-colors hover:bg-pink/80 active:bg-pink/70 focus:outline-none focus:ring-2 focus:ring-sage"
             >
-              Contribute
+              {rt.registry.contribute}
             </a>
           ) : isPurchased ? (
-            <span className="text-sm text-dark/40">Thank you!</span>
+            <span className="text-sm text-dark/40">{rt.registry.thankYou}</span>
           ) : isPendingByMe ? (
             <button
               type="button"
               onClick={() => onReturn(item.id)}
               className="rounded-full border border-sage/40 px-5 py-2.5 text-sm font-medium text-dark/70 transition-colors hover:bg-sage/10 active:bg-sage/20"
             >
-              I changed my mind
+              {rt.registry.iChangedMyMind}
             </button>
           ) : isPendingByOther ? (
             <span className="text-sm text-dark/40 italic">
-              Someone&apos;s on it
+              {rt.registry.someonesOnIt}
             </span>
           ) : (
             <button
@@ -235,7 +240,7 @@ function RegistryCard({
               onClick={() => onClaim(item.id, item.merchant_url)}
               className="rounded-full bg-pink px-5 py-2.5 text-sm font-medium text-dark transition-colors hover:bg-pink/80 active:bg-pink/70 focus:outline-none focus:ring-2 focus:ring-sage"
             >
-              I want to buy this
+              {rt.registry.iWantToBuy}
             </button>
           )}
         </div>
@@ -245,6 +250,8 @@ function RegistryCard({
 }
 
 export default function RegistryPage() {
+  const { lang } = useLanguage();
+  const t = getTranslations(lang);
   const [items, setItems] = useState<RegistryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -353,7 +360,7 @@ export default function RegistryPage() {
   if (loading) {
     return (
       <div className="mx-auto max-w-6xl px-4 py-16 text-center">
-        <p className="text-dark/50">Loading registry...</p>
+        <p className="text-dark/50">{t.registry.loading}</p>
       </div>
     );
   }
@@ -362,11 +369,10 @@ export default function RegistryPage() {
     <div className="mx-auto max-w-6xl px-4 py-16 sm:px-6 lg:px-8">
       <div className="text-center mb-12">
         <h1 className="text-4xl sm:text-5xl font-heading text-deep-sage mb-4">
-          Registry
+          {t.registry.title}
         </h1>
         <p className="text-dark/60 max-w-lg mx-auto leading-relaxed">
-          Your presence is the greatest gift. But if you&apos;d like to give us
-          something, here are a few things we&apos;d love.
+          {t.registry.subtitle}
         </p>
       </div>
 
@@ -377,9 +383,9 @@ export default function RegistryPage() {
             onChange={(e) => setSortBy(e.target.value as SortOption)}
             className="rounded-lg border border-sage/40 bg-white px-3 py-2 text-sm text-dark/70 focus:outline-none focus:ring-2 focus:ring-pink"
           >
-            <option value="default">Sort by: Featured</option>
-            <option value="price-low">Price: Low to High</option>
-            <option value="price-high">Price: High to Low</option>
+            <option value="default">{t.registry.sortFeatured}</option>
+            <option value="price-low">{t.registry.sortPriceLow}</option>
+            <option value="price-high">{t.registry.sortPriceHigh}</option>
           </select>
         </div>
       )}
@@ -392,14 +398,14 @@ export default function RegistryPage() {
             onClick={() => setError("")}
             className="mt-1 text-xs text-dark/50 underline"
           >
-            Dismiss
+            {t.registry.dismiss}
           </button>
         </div>
       )}
 
       {items.length === 0 ? (
         <p className="text-center text-dark/60 py-12">
-          Registry items coming soon. Check back!
+          {t.registry.comingSoon}
         </p>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
@@ -416,9 +422,7 @@ export default function RegistryPage() {
 
       <div className="mt-20 text-center">
         <p className="text-sm text-dark/50">
-          Click &quot;I want to buy this&quot; to let us know, then purchase on
-          the merchant&apos;s site. When you come back, we&apos;ll ask if you
-          bought it so we can keep track.
+          {t.registry.howItWorks}
         </p>
       </div>
 

@@ -44,7 +44,7 @@ export function RsvpFlow() {
 
   if (loading) {
     return (
-      <p className="text-center text-dark/50">Loading...</p>
+      <p className="text-center text-dark/50">...</p>
     );
   }
 

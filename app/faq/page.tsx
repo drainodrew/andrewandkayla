@@ -2,6 +2,7 @@
 
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
+import { useLanguage, getTranslations } from "@/lib/i18n";
 
 type FAQItem = {
   question: string;
@@ -13,141 +14,39 @@ type FAQCategory = {
   items: FAQItem[];
 };
 
-const faqData: FAQCategory[] = [
-  {
-    title: "The Big Day",
-    items: [
-      {
-        question: "When is the wedding?",
-        answer:
-          "Saturday, August 29, 2026! The ceremony begins at 5:00 PM. We can't wait to celebrate with you.",
-      },
-      {
-        question: "Where is the wedding?",
-        answer:
-          "Belle Meade Mansion in Nashville, Tennessee. The address is 110 Leake Ave, Nashville, TN 37205. It's a gorgeous historic estate and we're so excited to share it with you.",
-      },
-      {
-        question: "What is the dress code?",
-        answer:
-          <>Garden Formal. For the guys, think linen suits, loafers or cowboy boots, and a tie, bow tie, or bolo tie. Ladies are encouraged to wear floor-length dresses in soft summer colors, florals, and romantic textures. Check out our <a href="/what-to-wear" className="underline text-deep-sage hover:text-pink">What to Wear</a> page for inspiration!</>,
-      },
-      {
-        question: "Will the ceremony and reception be at the same location?",
-        answer:
-          "Yes! Both the ceremony and reception will be held at Belle Meade Mansion, so no need to worry about getting between venues.",
-      },
-    ],
-  },
-  {
-    title: "RSVP",
-    items: [
-      {
-        question: "How do I RSVP?",
-        answer: (
-          <>
-            Right here on this website! Head over to the{" "}
-            <Link
-              href="/rsvp"
-              className="text-deep-sage underline underline-offset-2 hover:text-deep-sage/80"
-            >
-              RSVP page
-            </Link>
-            , search for your name, and let us know if you can make it. No
-            stamps required.
-          </>
-        ),
-      },
-      {
-        question: "Can I bring a date?",
-        answer:
-          "Our venue has very specific size constraints. Please do not bring additional guests outside of those listed on your invitation / RSVP form.",
-      },
-      {
-        question: "When is the RSVP deadline?",
-        answer:
-          "Please RSVP by June 1, 2026. We need final headcounts for catering and seating, so the sooner the better!",
-      },
-      {
-        question: "I'm having trouble with the RSVP. What do I do?",
-        answer:
-          "No worries! Just reach out to Andrew or Kayla directly and we'll help you out. Technology is great until it isn't.",
-      },
-    ],
-  },
-  {
-    title: "Travel & Lodging",
-    items: [
-      {
-        question: "Where should I stay?",
-        answer: (
-          <>
-            Check out our{" "}
-            <Link
-              href="/lodging"
-              className="text-deep-sage underline underline-offset-2 hover:text-deep-sage/80"
-            >
-              Lodging page
-            </Link>{" "}
-            for recommendations. We don&apos;t have an official hotel block, but
-            we&apos;ve put together a list of great options near the venue.
-          </>
-        ),
-      },
-      {
-        question: "What's the closest airport?",
-        answer:
-          "Nashville International Airport (BNA). It's about 20 minutes from the venue, depending on traffic. Plenty of rideshare options and rental cars are available at the airport.",
-      },
-      {
-        question: "Is there parking at the venue?",
-        answer:
-          "Yes! Belle Meade has parking available on site. No need to worry about finding a spot.",
-      },
-      {
-        question: "What is there to do in Nashville?",
-        answer: (
-          <>
-            So much! Nashville is an incredible city. Check out our{" "}
-            <Link
-              href="/things-to-do"
-              className="text-deep-sage underline underline-offset-2 hover:text-deep-sage/80"
-            >
-              Things To Do page
-            </Link>{" "}
-            for our favorite spots, from honky tonks to hot chicken.
-          </>
-        ),
-      },
-    ],
-  },
-  {
-    title: "Day Of",
-    items: [
-      {
-        question: "What time should I arrive?",
-        answer:
-          "The ceremony starts at 5:15 PM, so please arrive by 4:45 PM to get settled. We'll start on time!",
-      },
-      {
-        question: "Will there be food and drinks?",
-        answer:
-          "Absolutely. Dinner and an open bar will be waiting for you at the reception. Come hungry and thirsty.",
-      },
-      {
-        question: "Can I take photos during the ceremony?",
-        answer:
-          "We'll have a wonderful photographer capturing everything, so we ask that you keep phones away during the ceremony. But at the reception? Go wild. We love a good candid.",
-      },
-    ],
-  },
-];
-
 /**
- * Single accordion item. Uses CSS grid for smooth height animation
- * without needing to measure the content DOM node. The grid row
- * transitions from 0fr (collapsed) to 1fr (expanded).
+ * Replaces link placeholders in FAQ answer strings with actual Link components.
  */
+function renderFaqAnswer(
+  text: string,
+  links: Record<string, { href: string; label: string }>
+): ReactNode {
+  // Check for link placeholders like {whatToWearLink}
+  const parts = text.split(/(\{[a-zA-Z]+\})/g);
+  if (parts.length === 1) return text;
+
+  return (
+    <>
+      {parts.map((part, i) => {
+        const match = part.match(/^\{([a-zA-Z]+)\}$/);
+        if (match && links[match[1]]) {
+          const link = links[match[1]];
+          return (
+            <Link
+              key={i}
+              href={link.href}
+              className="text-deep-sage underline underline-offset-2 hover:text-deep-sage/80"
+            >
+              {link.label}
+            </Link>
+          );
+        }
+        return part;
+      })}
+    </>
+  );
+}
+
 function AccordionItem({
   item,
   isOpen,
@@ -191,6 +90,23 @@ function AccordionItem({
 
 export default function FAQPage() {
   const [openItems, setOpenItems] = useState<Set<string>>(new Set());
+  const { lang } = useLanguage();
+  const t = getTranslations(lang);
+
+  const faqLinks: Record<string, { href: string; label: string }> = {
+    whatToWearLink: { href: "/what-to-wear", label: t.faq.whatToWearLinkText },
+    rsvpLink: { href: "/rsvp", label: t.faq.rsvpLinkText },
+    lodgingLink: { href: "/lodging", label: t.faq.lodgingLinkText },
+    thingsToDoLink: { href: "/things-to-do", label: t.faq.thingsToDoLinkText },
+  };
+
+  const faqData: FAQCategory[] = t.faq.categories.map((cat) => ({
+    title: cat.title,
+    items: cat.items.map((item) => ({
+      question: item.q,
+      answer: renderFaqAnswer(item.a, faqLinks),
+    })),
+  }));
 
   function toggleItem(key: string) {
     setOpenItems((prev) => {
@@ -208,11 +124,10 @@ export default function FAQPage() {
     <div className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
       <div className="mb-12 text-center">
         <h1 className="font-heading text-4xl text-deep-sage sm:text-5xl">
-          Questions? We&apos;ve Got Answers.
+          {t.faq.title}
         </h1>
         <p className="mt-4 text-lg text-dark/60">
-          If you don&apos;t find what you&apos;re looking for, reach out to
-          Andrew or Kayla anytime.
+          {t.faq.subtitle}
         </p>
       </div>
 
@@ -241,11 +156,11 @@ export default function FAQPage() {
 
       <div className="mt-16 text-center">
         <p className="text-dark/60">
-          Still have questions?{" "}
+          {t.faq.stillHaveQuestions}{" "}
           <span className="text-deep-sage font-medium">
-            Reach out to Andrew or Kayla directly.
+            {t.faq.reachOut}
           </span>{" "}
-          We&apos;re happy to help!
+          {t.faq.happyToHelp}
         </p>
       </div>
     </div>

@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Fraunces } from "next/font/google";
 import { Navigation } from "@/components/navigation";
+import { LanguageProvider } from "@/lib/i18n";
+import { Footer } from "@/components/footer";
 import "./globals.css";
 
 const fraunces = Fraunces({
@@ -27,11 +29,11 @@ export default function RootLayout({
       className={`${fraunces.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-background text-foreground font-body">
-        <Navigation />
-        <main className="flex-1">{children}</main>
-        <footer className="py-8 text-center text-sm text-deep-sage">
-          <p>Andrew & Kayla &middot; August 29, 2026 &middot; Nashville, TN</p>
-        </footer>
+        <LanguageProvider>
+          <Navigation />
+          <main className="flex-1">{children}</main>
+          <Footer />
+        </LanguageProvider>
       </body>
     </html>
   );

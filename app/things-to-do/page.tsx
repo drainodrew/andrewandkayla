@@ -1,112 +1,23 @@
+"use client";
+
+import { useLanguage, getTranslations } from "@/lib/i18n";
+
 export default function ThingsToDoPage() {
+  const { lang } = useLanguage();
+  const t = getTranslations(lang);
   function mapsUrl(query: string) {
     return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query + ", Nashville, TN")}`;
   }
 
-  const categories = [
-    {
-      title: "Our Favorites",
-      description: "Places we love and think you will too.",
-      spots: [
-        {
-          name: "Radnor Lake State Park",
-          mapsQuery: "Radnor Lake State Park",
-          type: "Nature / Hiking",
-          proximity: "~20 min from venue",
-          description:
-            "One of the best things about Nashville. A 1,368-acre natural area with beautiful trails, wildlife, and views of the lake. Easy to moderate hikes. Go early for the best parking.",
-          tip: "The Lake Trail is an easy flat walk. Ganier Ridge is more of a workout with great views.",
-        },
-        {
-          name: "Roberts Western World",
-          mapsQuery: "Roberts Western World",
-          type: "Live Music / Honky Tonk",
-          proximity: "~15 min from venue",
-          description:
-            "The best honky tonk on Broadway, and we will not be taking questions. Great live music, cold beer, and the Recession Special (fried bologna sandwich, chips, a PBR, and a Moon Pie) is a Nashville institution.",
-          tip: "Go during the day to avoid the big crowds. The music is just as good.",
-        },
-        {
-          name: "Imogene + Willie",
-          mapsQuery: "Imogene + Willie",
-          type: "Shopping",
-          proximity: "~15 min from venue",
-          description:
-            "A Nashville-born denim and clothing shop in a converted gas station in 12 South. Beautiful quality, great vibes. Worth a visit even if you're just browsing.",
-          tip: "While you're in 12 South, walk the neighborhood. Lots of good coffee and food nearby.",
-        },
-      ],
-    },
-    {
-      title: "Where to Eat",
-      description: "A few of our go-to spots around town.",
-      spots: [
-        {
-          name: "Sushi Bar",
-          mapsQuery: "Sushi Bar Nashville",
-          type: "High-End Sushi",
-          proximity: "~15 min from venue",
-          description:
-            "Unreal. If you're looking for a special meal on Friday night or Sunday before you head home, this is it. Omakase-style, intimate, and worth every penny. Reservations required.",
-          tip: "Book well in advance. This place fills up fast.",
-        },
-        {
-          name: "Mas Tacos Por Favor",
-          mapsQuery: "Mas Tacos Por Favor",
-          type: "Casual / Tacos",
-          proximity: "~20 min from venue",
-          description:
-            "A tiny spot in East Nashville with some of the best tacos in the city. Cash only, no frills, and always worth the trip. The elote and fried avocado tacos are legendary.",
-          tip: "Go for lunch. The line moves fast.",
-        },
-        {
-          name: "Sperry's",
-          mapsQuery: "Sperry's Nashville",
-          type: "Steakhouse",
-          proximity: "~5 min from venue",
-          description:
-            "A classic Nashville steakhouse in Belle Meade. Old school, great steaks, strong drinks. It's right near the venue if you want a nice dinner while you're in the neighborhood.",
-          tip: null,
-        },
-        {
-          name: "Baja Burrito",
-          mapsQuery: "Baja Burrito Nashville",
-          type: "Casual / Lunch",
-          proximity: "~10 min from venue",
-          description:
-            "Our go-to for a quick, easy lunch. Fresh burritos, tacos, and bowls. Nothing fancy, just really solid food at a great price.",
-          tip: null,
-        },
-        {
-          name: "Stay Golden",
-          mapsQuery: "Stay Golden Nashville",
-          type: "Breakfast / Brunch / Coffee",
-          proximity: "~10 min from venue",
-          description:
-            "My brother-in-law's restaurant and coffee shop in The Nations. Locally roasted coffee beans, the best biscuits in Nashville, and a great breakfast or brunch spot. This one is family, and the food speaks for itself.",
-          tip: null,
-        },
-        {
-          name: "Prince's Hot Chicken",
-          mapsQuery: "Prince's Hot Chicken Nolensville Pike",
-          type: "Hot Chicken",
-          proximity: "~20 min from venue",
-          description:
-            "The original Nashville hot chicken. Prince's has been around since the 1940s and it's still the real deal. Order mild if you're not sure, medium if you're brave, and hot if you have something to prove.",
-          tip: "There are a few locations now. The Nolensville Pike location is the classic.",
-        },
-      ],
-    },
-  ];
+  const categories = t.thingsToDo.categories;
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-16">
       <h1 className="text-4xl font-heading text-deep-sage mb-2 text-center">
-        Things To Do
+        {t.thingsToDo.title}
       </h1>
       <p className="text-center text-dark/60 mb-12">
-        Nashville is an incredible city. Here are some of our favorite spots to
-        check out while you&apos;re here.
+        {t.thingsToDo.subtitle}
       </p>
 
       <div className="space-y-12">
@@ -155,8 +66,7 @@ export default function ThingsToDoPage() {
 
       <div className="mt-12 rounded-xl border border-pink/30 bg-pink/5 p-6 text-center">
         <p className="text-sm text-dark/70">
-          Want more recommendations? Ask Andrew or Kayla. We&apos;re always
-          happy to help you plan your Nashville trip.
+          {t.thingsToDo.moreRecs}
         </p>
       </div>
     </div>

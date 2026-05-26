@@ -3,20 +3,41 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useLanguage, getTranslations } from "@/lib/i18n";
 
-const NAV_LINKS = [
-  { href: "/", label: "Home" },
-  { href: "/what-to-wear", label: "What to Wear" },
-  { href: "/schedule", label: "Schedule" },
-  { href: "/lodging", label: "Lodging" },
-  { href: "/things-to-do", label: "Things To Do" },
-  { href: "/faq", label: "FAQ" },
-  { href: "/registry", label: "Registry" },
+const NAV_HREFS = [
+  "/",
+  "/what-to-wear",
+  "/schedule",
+  "/lodging",
+  "/things-to-do",
+  "/faq",
+  "/registry",
 ] as const;
 
 export function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
   const pathname = usePathname();
+  const { lang, setLang } = useLanguage();
+  const t = getTranslations(lang);
+
+  const navLinks = NAV_HREFS.map((href) => ({
+    href,
+    label:
+      href === "/"
+        ? t.nav.home
+        : href === "/what-to-wear"
+          ? t.nav.whatToWear
+          : href === "/schedule"
+            ? t.nav.schedule
+            : href === "/lodging"
+              ? t.nav.lodging
+              : href === "/things-to-do"
+                ? t.nav.thingsToDo
+                : href === "/faq"
+                  ? t.nav.faq
+                  : t.nav.registry,
+  }));
 
   return (
     <nav className="sticky top-0 z-50 bg-cream/95 backdrop-blur-sm border-b border-sage/30">
@@ -30,7 +51,7 @@ export function Navigation() {
 
         {/* Desktop nav */}
         <ul className="hidden md:flex items-center gap-6">
-          {NAV_LINKS.map(({ href, label }) => (
+          {navLinks.map(({ href, label }) => (
             <li key={href}>
               <Link
                 href={href}
@@ -53,48 +74,68 @@ export function Navigation() {
                   : "bg-pink text-dark hover:bg-pink/80"
               }`}
             >
-              RSVP
+              {t.nav.rsvp}
             </Link>
+          </li>
+          <li>
+            <button
+              type="button"
+              onClick={() => setLang(lang === "en" ? "es" : "en")}
+              className="text-xs font-medium text-dark/50 hover:text-deep-sage transition-colors border border-sage/30 rounded-full px-3 py-1"
+              aria-label={lang === "en" ? "Switch to Spanish" : "Cambiar a Inglés"}
+            >
+              {lang === "en" ? "ES" : "EN"}
+            </button>
           </li>
         </ul>
 
-        {/* Hamburger button */}
-        <button
-          type="button"
-          className="md:hidden p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-pink"
-          onClick={() => setIsOpen(!isOpen)}
-          aria-expanded={isOpen}
-          aria-label="Toggle navigation menu"
-        >
-          <svg
-            className="h-6 w-6 text-deep-sage"
-            fill="none"
-            viewBox="0 0 24 24"
-            strokeWidth={1.5}
-            stroke="currentColor"
+        {/* Mobile: language toggle + hamburger */}
+        <div className="md:hidden flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => setLang(lang === "en" ? "es" : "en")}
+            className="text-xs font-medium text-dark/50 hover:text-deep-sage transition-colors border border-sage/30 rounded-full px-3 py-1"
+            aria-label={lang === "en" ? "Switch to Spanish" : "Cambiar a Inglés"}
           >
-            {isOpen ? (
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M6 18L18 6M6 6l12 12"
-              />
-            ) : (
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
-              />
-            )}
-          </svg>
-        </button>
+            {lang === "en" ? "ES" : "EN"}
+          </button>
+          <button
+            type="button"
+            className="p-2 rounded-md focus:outline-none focus:ring-2 focus:ring-pink"
+            onClick={() => setIsOpen(!isOpen)}
+            aria-expanded={isOpen}
+            aria-label="Toggle navigation menu"
+          >
+            <svg
+              className="h-6 w-6 text-deep-sage"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={1.5}
+              stroke="currentColor"
+            >
+              {isOpen ? (
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18L18 6M6 6l12 12"
+                />
+              ) : (
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"
+                />
+              )}
+            </svg>
+          </button>
+        </div>
       </div>
 
       {/* Mobile nav */}
       {isOpen && (
         <div className="md:hidden border-t border-sage/30 bg-cream">
           <ul className="flex flex-col px-4 py-2">
-            {NAV_LINKS.map(({ href, label }) => (
+            {navLinks.map(({ href, label }) => (
               <li key={href}>
                 <Link
                   href={href}
@@ -115,7 +156,7 @@ export function Navigation() {
                 className="block text-center rounded-full bg-pink px-5 py-2 text-sm font-medium text-dark"
                 onClick={() => setIsOpen(false)}
               >
-                RSVP
+                {t.nav.rsvp}
               </Link>
             </li>
           </ul>

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { submitRsvp, clearRsvpSession } from "@/lib/actions/rsvp";
+import { useLanguage, getTranslations } from "@/lib/i18n";
 
 interface Guest {
   id: string;
@@ -62,6 +63,8 @@ export function RsvpForm({
     return initial;
   });
 
+  const { lang } = useLanguage();
+  const t = getTranslations(lang);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
@@ -149,11 +152,10 @@ export function RsvpForm({
     return (
       <div className="mx-auto max-w-lg text-center">
         <h2 className="text-3xl font-heading text-deep-sage mb-4">
-          Thank you!
+          {t.rsvp.thankYou}
         </h2>
         <p className="text-dark/80 mb-8">
-          Your RSVP for {partyName} has been saved. You can come back and
-          update it anytime before the wedding.
+          {t.rsvp.rsvpSaved.replace("{partyName}", partyName)}
         </p>
 
         <div className="grid grid-cols-3 gap-3 mb-8">
@@ -182,7 +184,7 @@ export function RsvpForm({
           onClick={() => setSubmitted(false)}
           className="text-sm text-dark/50 underline hover:text-dark/70"
         >
-          Update RSVP
+          {t.rsvp.updateRsvp}
         </button>
       </div>
     );
@@ -194,7 +196,7 @@ export function RsvpForm({
         <div>
           <h2 className="text-2xl font-heading text-deep-sage">{partyName}</h2>
           <p className="text-sm text-dark/60 mt-1">
-            Party of {guests.length}
+            {t.rsvp.partyOf} {guests.length}
           </p>
         </div>
         <button
@@ -202,7 +204,7 @@ export function RsvpForm({
           onClick={handleSwitchParty}
           className="text-sm text-dark/50 underline hover:text-dark/70"
         >
-          Not you?
+          {t.rsvp.notYou}
         </button>
       </div>
 
@@ -250,7 +252,7 @@ export function RsvpForm({
               )}
               {event.dress_code && (
                 <p className="text-sm text-dark/60 mb-4">
-                  Dress code: {event.dress_code}
+                  {t.rsvp.dressCode} {event.dress_code}
                 </p>
               )}
               {event.description && (
@@ -280,7 +282,7 @@ export function RsvpForm({
                             : "border border-sage/40 text-dark/60 hover:border-pink"
                         }`}
                       >
-                        Attending
+                        {t.rsvp.attending}
                       </button>
                       <button
                         type="button"
@@ -293,7 +295,7 @@ export function RsvpForm({
                             : "border border-sage/40 text-dark/60 hover:border-dark/30"
                         }`}
                       >
-                        Decline
+                        {t.rsvp.decline}
                       </button>
                     </div>
                   </div>
@@ -305,7 +307,7 @@ export function RsvpForm({
           {/* Dietary restrictions */}
           <div className="rounded-xl border border-sage/30 bg-white p-6">
             <h3 className="text-lg font-heading text-deep-sage mb-4">
-              Dietary Restrictions
+              {t.rsvp.dietaryTitle}
             </h3>
             <div className="space-y-4">
               {guests.map((guest) => (
@@ -326,7 +328,7 @@ export function RsvpForm({
                         [guest.id]: e.target.value,
                       }))
                     }
-                    placeholder="Allergies, vegetarian, etc."
+                    placeholder={t.rsvp.dietaryPlaceholder}
                     className="w-full rounded-lg border border-sage/50 bg-white px-3 py-2 text-sm text-dark placeholder:text-dark/30 focus:outline-none focus:ring-2 focus:ring-pink focus:border-transparent"
                   />
                 </div>
@@ -345,7 +347,7 @@ export function RsvpForm({
               disabled={isSubmitting}
               className="rounded-lg bg-pink px-8 py-3 font-medium text-dark transition-colors hover:bg-pink/80 focus:outline-none focus:ring-2 focus:ring-sage disabled:opacity-50"
             >
-              {isSubmitting ? "Saving..." : "Submit RSVP"}
+              {isSubmitting ? t.rsvp.saving : t.rsvp.submitRsvp}
             </button>
           </div>
         </div>

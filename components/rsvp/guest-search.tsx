@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import { selectParty } from "@/lib/actions/rsvp";
+import { useLanguage, getTranslations } from "@/lib/i18n";
 
 interface PartyResult {
   party_id: string;
@@ -14,6 +15,8 @@ export function GuestSearch({
 }: {
   onPartySelected: () => void;
 }) {
+  const { lang } = useLanguage();
+  const t = getTranslations(lang);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<PartyResult[]>([]);
   const [isSearching, setIsSearching] = useState(false);
@@ -78,14 +81,14 @@ export function GuestSearch({
   return (
     <div className="mx-auto max-w-md">
       <label htmlFor="guest-search" className="block text-sm font-medium mb-2">
-        Search for your name
+        {t.rsvp.searchLabel}
       </label>
       <input
         id="guest-search"
         type="text"
         value={query}
         onChange={(e) => handleChange(e.target.value)}
-        placeholder="Type your first or last name..."
+        placeholder={t.rsvp.searchPlaceholder}
         className="w-full rounded-lg border border-sage/50 bg-white px-4 py-3 text-dark placeholder:text-dark/40 focus:outline-none focus:ring-2 focus:ring-pink focus:border-transparent"
         autoComplete="off"
         disabled={isSelecting}
@@ -93,12 +96,12 @@ export function GuestSearch({
 
       {query.length > 0 && query.length < 3 && (
         <p className="mt-2 text-sm text-dark/50">
-          Keep typing (at least 3 characters)...
+          {t.rsvp.keepTyping}
         </p>
       )}
 
       {isSearching && (
-        <p className="mt-2 text-sm text-dark/50">Searching...</p>
+        <p className="mt-2 text-sm text-dark/50">{t.rsvp.searching}</p>
       )}
 
       {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
@@ -115,7 +118,7 @@ export function GuestSearch({
               >
                 <span className="font-medium">{r.display_name}</span>
                 <span className="ml-2 text-sm text-dark/50">
-                  (party of {r.party_size})
+                  ({t.rsvp.partyOf} {r.party_size})
                 </span>
               </button>
             </li>
@@ -125,8 +128,7 @@ export function GuestSearch({
 
       {hasSearched && !isSearching && results.length === 0 && !error && (
         <p className="mt-3 text-sm text-dark/60">
-          No results found. Try a different spelling, or contact Andrew and
-          Kayla if you think something is wrong.
+          {t.rsvp.noResults}
         </p>
       )}
     </div>

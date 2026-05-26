@@ -3,9 +3,12 @@
 import Link from "next/link";
 import Image from "next/image";
 import { useEffect, useState } from "react";
+import { useLanguage, getTranslations } from "@/lib/i18n";
 
 function Countdown({ targetDate }: { targetDate: string }) {
   const [timeLeft, setTimeLeft] = useState({ days: 0, hours: 0, minutes: 0, seconds: 0 });
+  const { lang } = useLanguage();
+  const t = getTranslations(lang);
 
   useEffect(() => {
     const target = new Date(targetDate).getTime();
@@ -27,10 +30,10 @@ function Countdown({ targetDate }: { targetDate: string }) {
   }, [targetDate]);
 
   const units = [
-    { value: timeLeft.days, label: "Days" },
-    { value: timeLeft.hours, label: "Hours" },
-    { value: timeLeft.minutes, label: "Minutes" },
-    { value: timeLeft.seconds, label: "Seconds" },
+    { value: timeLeft.days, label: t.home.days },
+    { value: timeLeft.hours, label: t.home.hours },
+    { value: timeLeft.minutes, label: t.home.minutes },
+    { value: timeLeft.seconds, label: t.home.seconds },
   ];
 
   return (
@@ -50,6 +53,9 @@ function Countdown({ targetDate }: { targetDate: string }) {
 }
 
 export default function Home() {
+  const { lang } = useLanguage();
+  const t = getTranslations(lang);
+
   return (
     <div>
       {/* Hero section */}
@@ -71,12 +77,12 @@ export default function Home() {
 
         {/* Text content */}
         <div className="flex flex-col items-center px-4 mt-3 sm:mt-10">
-          {/* Tagline: smaller on mobile, supporting role */}
+          {/* Tagline */}
           <p
             className="text-sm sm:text-lg text-[#5C3D2E]/50 mb-2 sm:mb-3 tracking-[0.15em]"
             style={{ fontFamily: "var(--font-hero)" }}
           >
-            We&apos;re Getting Married!
+            {t.home.tagline}
           </p>
 
           {/* Mobile: stacked name, boosted contrast */}
@@ -95,22 +101,22 @@ export default function Home() {
           </h1>
 
           <p className="text-xs sm:text-sm uppercase tracking-[0.25em] text-sage/70 mb-1 sm:mb-2">
-            August 29, 2026
+            {t.home.date}
           </p>
           {/* Mobile: venue smaller */}
           <div
             className="sm:hidden text-[#5C3D2E]/40 mt-2 mb-4 text-center"
             style={{ fontFamily: "var(--font-hero)" }}
           >
-            <p className="text-[15px]">Belle Meade Mansion</p>
-            <p className="text-[13px]">Nashville, Tennessee</p>
+            <p className="text-[15px]">{t.home.venue}</p>
+            <p className="text-[13px]">{t.home.city}</p>
           </div>
           {/* Desktop: single line for venue */}
           <p
             className="hidden sm:block text-lg text-[#5C3D2E]/40 mb-10"
             style={{ fontFamily: "var(--font-hero)" }}
           >
-            Belle Meade Mansion &nbsp;&bull;&nbsp; Nashville, Tennessee
+            {t.home.venueFull}
           </p>
 
           <Countdown targetDate="2026-08-29T17:15:00-05:00" />
@@ -120,7 +126,7 @@ export default function Home() {
             className="mt-5 sm:mt-8 inline-block rounded-lg bg-pink px-8 py-3 text-[#5C3D2E]/40 transition-colors hover:bg-pink/80 focus:outline-none focus:ring-2 focus:ring-sage"
             style={{ fontFamily: "var(--font-hero)" }}
           >
-            RSVP
+            {t.home.rsvp}
           </Link>
 
           <div className="mb-16 sm:mb-32" />
@@ -130,14 +136,14 @@ export default function Home() {
       {/* Quick Links */}
       <section className="text-center px-4 pb-16 pt-8 max-w-4xl mx-auto border-t border-sage/20">
         <h2 className="text-2xl font-heading text-deep-sage mb-8">
-          While You&apos;re Here
+          {t.home.whileYoureHere}
         </h2>
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
           {[
-            { label: "Schedule", href: "/schedule" },
-            { label: "Lodging", href: "/lodging" },
-            { label: "Things To Do", href: "/things-to-do" },
-            { label: "FAQ", href: "/faq" },
+            { label: t.home.linkSchedule, href: "/schedule" },
+            { label: t.home.linkLodging, href: "/lodging" },
+            { label: t.home.linkThingsToDo, href: "/things-to-do" },
+            { label: t.home.linkFaq, href: "/faq" },
           ].map((link) => (
             <Link
               key={link.href}

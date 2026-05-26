@@ -2,6 +2,7 @@
 
 import { useEffect } from "react";
 import Image from "next/image";
+import { useLanguage, getTranslations } from "@/lib/i18n";
 
 function useScrollAnimations() {
   useEffect(() => {
@@ -154,6 +155,8 @@ function WavyDivider() {
 
 export default function WhatToWearPage() {
   useScrollAnimations();
+  const { lang } = useLanguage();
+  const t = getTranslations(lang);
 
   return (
     <div className="relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen bg-pink/20 min-h-screen">
@@ -161,11 +164,10 @@ export default function WhatToWearPage() {
       {/* Header */}
       <div className="text-center mb-6 animate-on-scroll">
         <h1 className="text-4xl sm:text-6xl font-heading text-deep-sage mb-4">
-          Garden Formal
+          {t.whatToWear.title}
         </h1>
         <p className="text-dark/60 max-w-lg mx-auto leading-relaxed mb-3">
-          Think warm summer evening on the lawn of a historic mansion.
-          Dress to impress, but keep it comfortable enough to dance.
+          {t.whatToWear.subtitle}
         </p>
       </div>
 
@@ -181,12 +183,8 @@ export default function WhatToWearPage() {
                 height={500}
                 className="w-full h-auto mb-4"
               />
-              <h3 className="font-heading text-deep-sage text-base mb-2">For the Fellas</h3>
-              <p>
-                Linen suits, summer-weight blazers, loafers, cowboy boots, bolo ties,
-                pocket squares. Think southern gentleman meets garden party.
-                Light colors welcome. No shorts or sneakers.
-              </p>
+              <h3 className="font-heading text-deep-sage text-base mb-2">{t.whatToWear.fellasTitle}</h3>
+              <p>{t.whatToWear.fellasDesc}</p>
             </div>
             <div>
               <Image
@@ -196,11 +194,8 @@ export default function WhatToWearPage() {
                 height={500}
                 className="w-full h-auto mb-4"
               />
-              <h3 className="font-heading text-deep-sage text-base mb-2">For the Ladies</h3>
-              <p>
-                Ladies are encouraged to wear floor-length dresses in soft summer
-                colors, florals, and romantic textures.
-              </p>
+              <h3 className="font-heading text-deep-sage text-base mb-2">{t.whatToWear.ladiesTitle}</h3>
+              <p>{t.whatToWear.ladiesDesc}</p>
             </div>
           </div>
         </div>
@@ -209,7 +204,7 @@ export default function WhatToWearPage() {
       <WavyDivider />
 
       <p className="text-center text-sm text-dark/40 mt-6 mb-10 animate-on-scroll">
-        Some inspiration to get you started
+        {t.whatToWear.inspoSubtitle}
       </p>
 
       {/* Masonry-style gallery */}
@@ -247,7 +242,7 @@ export default function WhatToWearPage() {
           />
         </div>
         <p className="text-sm text-dark/40">
-          See you on the lawn.
+          {t.whatToWear.bottomText}
         </p>
       </div>
     </div>
