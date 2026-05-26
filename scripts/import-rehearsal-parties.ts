@@ -111,9 +111,9 @@ function parseCSVLine(line: string): string[] {
  * Value: name as it appears in Supabase parties.invite_name
  */
 const NAME_ALIASES: Record<string, string> = {
-  // Add overrides here if names don't match exactly.
-  // e.g. "Caroline & John Patrick Baldwin ": "Caroline & John Patrick Baldwin"
-  // The script will report unmatched names so you can fill this in.
+  "William Trapnell": "William Trapnell & Summer Moffett",
+  "Joe & Julia Moore": "The Moore Family",
+  "Jackson Krodel": "Jackson Krodel & Charlotte Flowers",
 };
 
 // --- Main ---
