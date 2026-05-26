@@ -237,13 +237,13 @@ export default function WhatToWearPage() {
 
       {/* Bottom illustration */}
       <div className="mt-16 text-center animate-on-scroll">
-        <div className="max-w-[180px] mx-auto mb-4">
+        <div className="max-w-[220px] mx-auto mb-4">
           <Image
-            src="/images/graphics/Copy of The Manuels.png"
-            alt="Andrew and Kayla illustration"
-            width={300}
-            height={300}
-            className="w-full h-auto opacity-60 hover:opacity-100 transition-opacity duration-500"
+            src="/images/graphics/martini-manuels.png"
+            alt="Andrew and Kayla sitting in a martini glass"
+            width={400}
+            height={400}
+            className="w-full h-auto mix-blend-multiply opacity-60 hover:opacity-100 transition-opacity duration-500"
           />
         </div>
         <p className="text-sm text-dark/40">

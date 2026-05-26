@@ -1,4 +1,8 @@
 export default function ThingsToDoPage() {
+  function mapsUrl(query: string) {
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query + ", Nashville, TN")}`;
+  }
+
   const categories = [
     {
       title: "Our Favorites",
@@ -6,6 +10,7 @@ export default function ThingsToDoPage() {
       spots: [
         {
           name: "Radnor Lake State Park",
+          mapsQuery: "Radnor Lake State Park",
           type: "Nature / Hiking",
           proximity: "~20 min from venue",
           description:
@@ -14,6 +19,7 @@ export default function ThingsToDoPage() {
         },
         {
           name: "Roberts Western World",
+          mapsQuery: "Roberts Western World",
           type: "Live Music / Honky Tonk",
           proximity: "~15 min from venue",
           description:
@@ -22,6 +28,7 @@ export default function ThingsToDoPage() {
         },
         {
           name: "Imogene + Willie",
+          mapsQuery: "Imogene + Willie",
           type: "Shopping",
           proximity: "~15 min from venue",
           description:
@@ -36,6 +43,7 @@ export default function ThingsToDoPage() {
       spots: [
         {
           name: "Sushi Bar",
+          mapsQuery: "Sushi Bar Nashville",
           type: "High-End Sushi",
           proximity: "~15 min from venue",
           description:
@@ -44,6 +52,7 @@ export default function ThingsToDoPage() {
         },
         {
           name: "Mas Tacos Por Favor",
+          mapsQuery: "Mas Tacos Por Favor",
           type: "Casual / Tacos",
           proximity: "~20 min from venue",
           description:
@@ -52,6 +61,7 @@ export default function ThingsToDoPage() {
         },
         {
           name: "Sperry's",
+          mapsQuery: "Sperry's Nashville",
           type: "Steakhouse",
           proximity: "~5 min from venue",
           description:
@@ -60,6 +70,7 @@ export default function ThingsToDoPage() {
         },
         {
           name: "Baja Burrito",
+          mapsQuery: "Baja Burrito Nashville",
           type: "Casual / Lunch",
           proximity: "~10 min from venue",
           description:
@@ -68,6 +79,7 @@ export default function ThingsToDoPage() {
         },
         {
           name: "Stay Golden",
+          mapsQuery: "Stay Golden Nashville",
           type: "Breakfast / Brunch / Coffee",
           proximity: "~10 min from venue",
           description:
@@ -76,6 +88,7 @@ export default function ThingsToDoPage() {
         },
         {
           name: "Prince's Hot Chicken",
+          mapsQuery: "Prince's Hot Chicken Nolensville Pike",
           type: "Hot Chicken",
           proximity: "~20 min from venue",
           description:
@@ -111,7 +124,14 @@ export default function ThingsToDoPage() {
                 >
                   <div className="flex items-start justify-between gap-4 mb-2">
                     <div className="flex items-center gap-3">
-                      <h3 className="font-medium text-dark">{spot.name}</h3>
+                      <a
+                        href={mapsUrl(spot.mapsQuery)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="font-medium text-dark hover:text-pink transition-colors"
+                      >
+                        {spot.name}
+                      </a>
                       <span className="shrink-0 rounded-full bg-sage/20 px-3 py-0.5 text-xs font-medium text-deep-sage">
                         {spot.type}
                       </span>
