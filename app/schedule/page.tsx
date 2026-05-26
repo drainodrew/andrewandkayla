@@ -13,34 +13,34 @@ const TIMELINE_EVENTS = [
     time: "5:15pm",
     description:
       "Please arrive at 5:15pm to enjoy light grazing and welcome drinks as we gather for the ceremony",
-    image: "/images/graphics/timeline-ceremony.png",
+    image: "/images/graphics/timeline-2/Welcome & Ceremony.png",
   },
   {
     title: "Cocktail Hour",
     time: "6:15pm",
     description:
       "Guests are invited to enjoy drinks, light bites, and games",
-    image: "/images/graphics/timeline-cocktails.png",
+    image: "/images/graphics/timeline-2/Cocktail Hour.png",
   },
   {
     title: "Dinner",
     time: "7:00pm",
     description: "Gather with us for a tented dinner and toasts",
-    image: "/images/graphics/timeline-dinner.png",
+    image: "/images/graphics/timeline-2/Dinner.png",
   },
   {
-    title: "Continued Celebration",
+    title: "Dancing",
     time: "8:00pm",
     description:
       "Join us on the dance floor for live music and dessert",
-    image: "/images/graphics/timeline-dancing.png",
+    image: "/images/graphics/timeline-2/Dancing.png",
   },
   {
     title: "Farewell",
     time: "11:00pm",
     description:
       "The evening concludes with a joyful send-off. Thank you for celebrating with us!",
-    image: "/images/graphics/timeline-farewell.png",
+    image: "/images/graphics/timeline-2/Farewell.png",
   },
 ];
 
@@ -74,101 +74,92 @@ export default async function SchedulePage() {
     events = events.filter((e) => e.slug !== "rehearsal-dinner");
   }
 
-  // Separate wedding from other events
-  const weddingEvent = events.find((e) => e.slug === "wedding-day");
-  const otherEvents = events.filter((e) => e.slug !== "wedding-day");
+  // Only show non-wedding events (game day, rehearsal dinner, etc.)
+  // The wedding itself is covered by the hardcoded timeline below
+  const otherEvents = events.filter(
+    (e) => e.slug !== "wedding-ceremony-reception"
+  );
 
   return (
     <div className="relative left-1/2 right-1/2 -ml-[50vw] -mr-[50vw] w-screen bg-sage/20 min-h-screen">
       <div className="mx-auto max-w-5xl px-4 py-16 sm:px-6 lg:px-8">
         {/* Page header */}
-        <h1 className="text-4xl sm:text-5xl font-heading text-pink mb-2 text-center">
+        <h1 className="text-4xl sm:text-5xl font-heading text-[#5C3D2E] mb-2 text-center">
           Schedule
         </h1>
         <p className="text-center text-[#5C3D2E]/60 mb-12">
           Here&apos;s what we have planned for the weekend.
         </p>
 
-        {/* Other events (game day, rehearsal dinner) */}
+        {/* Friday Game Day - simple centered section */}
         {otherEvents.length > 0 && (
-          <div className="space-y-6 mb-16 max-w-3xl mx-auto">
+          <div className="text-center mb-16 max-w-3xl mx-auto">
             {otherEvents.map((event) => (
-              <div
-                key={event.id}
-                className="rounded-xl border border-sage/30 bg-cream p-6"
-              >
-                <h2 className="text-xl font-heading text-pink mb-2">
+              <div key={event.id} className="mb-10">
+                <div className="max-w-[200px] mx-auto mb-4">
+                  <Image
+                    src="/images/graphics/gameday.png"
+                    alt="Game day illustration"
+                    width={400}
+                    height={200}
+                    className="w-full h-auto mix-blend-multiply"
+                  />
+                </div>
+                <h2 className="text-2xl font-heading text-[#5C3D2E] mb-2">
                   {event.name}
                 </h2>
-
-                <div className="space-y-1 mb-4">
-                  {event.starts_at && (
-                    <p className="text-sm text-[#5C3D2E]">
-                      {new Date(event.starts_at).toLocaleDateString("en-US", {
-                        weekday: "long",
-                        month: "long",
-                        day: "numeric",
-                        year: "numeric",
-                      })}
-                      {event.ends_at && (
-                        <>
-                          {" "}
-                          &middot;{" "}
-                          {new Date(event.starts_at).toLocaleTimeString(
-                            "en-US",
-                            { hour: "numeric", minute: "2-digit" }
-                          )}{" "}
-                          to{" "}
-                          {new Date(event.ends_at).toLocaleTimeString("en-US", {
-                            hour: "numeric",
-                            minute: "2-digit",
-                          })}
-                        </>
-                      )}
-                    </p>
-                  )}
-
-                  {event.location && (
-                    <p className="text-sm text-[#5C3D2E]">{event.location}</p>
-                  )}
-
-                  {event.address && (
-                    <p className="text-sm">
-                      <a
-                        href={mapsUrl(event.address)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[#5C3D2E] underline underline-offset-2 decoration-sage hover:text-deep-sage transition-colors"
-                      >
-                        {event.address}
-                      </a>
-                    </p>
-                  )}
-
-                  {event.dress_code && (
-                    <p className="text-sm text-[#5C3D2E] mt-3">
-                      Dress code:{" "}
-                      <Link
-                        href="/what-to-wear"
-                        className="text-[#5C3D2E] underline underline-offset-2 decoration-sage hover:text-deep-sage transition-colors"
-                      >
-                        {event.dress_code}
-                      </Link>
-                    </p>
-                  )}
-                </div>
-
+                {event.starts_at && (
+                  <p className="text-sm text-[#5C3D2E]/60">
+                    {new Date(event.starts_at).toLocaleDateString("en-US", {
+                      weekday: "long",
+                      month: "long",
+                      day: "numeric",
+                      year: "numeric",
+                    })}
+                    {event.ends_at && (
+                      <>
+                        {" "}
+                        &middot;{" "}
+                        {new Date(event.starts_at).toLocaleTimeString("en-US", {
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}{" "}
+                        to{" "}
+                        {new Date(event.ends_at).toLocaleTimeString("en-US", {
+                          hour: "numeric",
+                          minute: "2-digit",
+                        })}
+                      </>
+                    )}
+                  </p>
+                )}
+                {event.address && (
+                  <p className="text-sm mt-1">
+                    <a
+                      href={mapsUrl(event.address)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[#5C3D2E]/60 underline underline-offset-2 decoration-sage hover:text-[#5C3D2E] transition-colors"
+                    >
+                      {event.address}
+                    </a>
+                  </p>
+                )}
                 {event.description && (
-                  <p className="text-[#5C3D2E]">{event.description}</p>
+                  <p className="text-sm text-[#5C3D2E]/50 mt-2">
+                    {event.description}
+                  </p>
                 )}
               </div>
             ))}
+
+            <div className="border-t border-[#5C3D2E]/10 mt-8" />
           </div>
         )}
 
         {/* Wedding Timeline */}
-        <div className="text-center mb-8">
-          <h2 className="text-3xl sm:text-4xl font-heading text-pink mb-2">
+        <div className="text-center mb-10">
+          <h2 className="text-3xl sm:text-4xl font-heading text-[#5C3D2E] mb-3">
             Wedding Timeline
           </h2>
           <p className="text-[#5C3D2E]/60 text-sm">
@@ -177,105 +168,110 @@ export default async function SchedulePage() {
           <p className="text-[#5C3D2E]/50 text-sm mt-1">
             <Link
               href="/what-to-wear"
-              className="hover:text-pink transition-colors"
+              className="hover:text-[#5C3D2E] transition-colors"
             >
               Garden formal attire
             </Link>
           </p>
-          {weddingEvent?.address && (
-            <p className="text-sm mt-1">
-              <a
-                href={mapsUrl(weddingEvent.address)}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-[#5C3D2E]/50 underline underline-offset-2 decoration-sage/50 hover:text-deep-sage transition-colors"
-              >
-                {weddingEvent.address}
-              </a>
-            </p>
-          )}
         </div>
 
         {/* Desktop: horizontal timeline */}
-        <div className="hidden sm:block">
+        <div className="hidden sm:block max-w-4xl mx-auto">
           {/* Illustrations row */}
-          <div className="grid grid-cols-5 gap-4 mb-2">
+          <div className="grid grid-cols-5 gap-6 mb-4">
             {TIMELINE_EVENTS.map((evt) => (
-              <div key={evt.title} className="flex items-end justify-center h-28">
+              <div
+                key={evt.title}
+                className="flex items-end justify-center"
+              >
                 <Image
                   src={evt.image}
                   alt={evt.title}
-                  width={200}
+                  width={240}
                   height={160}
-                  className="h-full w-auto object-contain mix-blend-multiply"
+                  className="w-full h-auto max-h-[120px] object-contain mix-blend-multiply"
                 />
               </div>
             ))}
           </div>
 
-          {/* Timeline bar with titles */}
-          <div className="relative grid grid-cols-5 gap-4">
-            {/* Horizontal line */}
-            <div className="absolute top-[2.2rem] left-[10%] right-[10%] h-[2px] bg-pink/40" />
-
+          {/* Titles row */}
+          <div className="grid grid-cols-5 gap-6 mb-1">
             {TIMELINE_EVENTS.map((evt) => (
-              <div key={evt.title} className="text-center relative">
-                <p className="font-heading text-pink text-sm mb-2">
-                  {evt.title}
-                </p>
-                {/* Vertical tick */}
-                <div className="mx-auto w-[2px] h-4 bg-pink/40" />
-                <p className="font-heading text-[#5C3D2E] text-lg mt-2">
-                  {evt.time}
-                </p>
-                <p className="text-[#5C3D2E]/60 text-xs mt-2 leading-relaxed px-2">
-                  {evt.description}
-                </p>
-              </div>
+              <p
+                key={evt.title}
+                className="text-center font-heading text-[#5C3D2E] text-sm leading-tight"
+              >
+                {evt.title}
+              </p>
+            ))}
+          </div>
+
+          {/* Horizontal line with vertical ticks aligned to grid columns */}
+          <div className="relative h-8">
+            <div className="absolute top-0 left-0 right-0 h-[2px] bg-[#5C3D2E]/30" />
+            <div className="grid grid-cols-5 gap-6 h-full">
+              {TIMELINE_EVENTS.map((_, i) => (
+                <div key={i} className="flex justify-center">
+                  <div className="w-[2px] h-4 bg-[#5C3D2E]/30" />
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Times row */}
+          <div className="grid grid-cols-5 gap-6 mb-3">
+            {TIMELINE_EVENTS.map((evt) => (
+              <p
+                key={evt.title}
+                className="text-center font-heading text-[#5C3D2E] text-lg"
+              >
+                {evt.time}
+              </p>
+            ))}
+          </div>
+
+          {/* Descriptions row */}
+          <div className="grid grid-cols-5 gap-6">
+            {TIMELINE_EVENTS.map((evt) => (
+              <p
+                key={evt.title}
+                className="text-center text-[#5C3D2E]/60 text-xs leading-relaxed"
+              >
+                {evt.description}
+              </p>
             ))}
           </div>
         </div>
 
-        {/* Mobile: vertical timeline */}
-        <div className="sm:hidden space-y-8">
+        {/* Mobile: centered vertical timeline */}
+        <div className="sm:hidden space-y-8 px-4">
           {TIMELINE_EVENTS.map((evt, i) => (
-            <div key={evt.title} className="flex gap-4 items-start">
-              {/* Left: vertical timeline line + dot */}
-              <div className="flex flex-col items-center shrink-0 w-8">
-                <div className="w-3 h-3 rounded-full bg-pink border-2 border-pink/60 mt-1" />
-                {i < TIMELINE_EVENTS.length - 1 && (
-                  <div className="w-[2px] flex-1 bg-pink/30 mt-1" />
-                )}
-              </div>
-
-              {/* Right: content */}
-              <div className="flex-1 pb-2">
-                <div className="flex items-start gap-3 mb-2">
-                  <div className="flex-1">
-                    <h3 className="font-heading text-pink text-lg leading-snug">
-                      {evt.title}
-                    </h3>
-                    <p className="font-heading text-[#5C3D2E] text-base">
-                      {evt.time}
-                    </p>
-                  </div>
-                  <Image
-                    src={evt.image}
-                    alt={evt.title}
-                    width={100}
-                    height={80}
-                    className="w-16 h-auto object-contain mix-blend-multiply shrink-0"
-                  />
-                </div>
-                <p className="text-[#5C3D2E]/60 text-sm leading-relaxed">
-                  {evt.description}
-                </p>
-              </div>
+            <div key={evt.title} className="text-center">
+              <Image
+                src={evt.image}
+                alt={evt.title}
+                width={160}
+                height={120}
+                className="w-24 h-auto object-contain mix-blend-multiply mx-auto mb-2"
+              />
+              <h3 className="font-heading text-[#5C3D2E] text-base leading-snug">
+                {evt.title}
+              </h3>
+              <p className="font-heading text-[#5C3D2E]/70 text-sm">
+                {evt.time}
+              </p>
+              <p className="text-[#5C3D2E]/50 text-sm leading-relaxed mt-1 max-w-[280px] mx-auto">
+                {evt.description}
+              </p>
+              {i < TIMELINE_EVENTS.length - 1 && (
+                <div className="w-[1.5px] h-6 bg-[#5C3D2E]/20 mx-auto mt-4" />
+              )}
             </div>
           ))}
         </div>
 
-        {/* Footer note */}
+        {/* Footer */}
         <div className="mt-16 text-center">
           <p className="text-sm text-[#5C3D2E]/40">
             More details to come as the day gets closer.

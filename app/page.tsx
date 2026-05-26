@@ -113,7 +113,7 @@ export default function Home() {
             Belle Meade Mansion &nbsp;&bull;&nbsp; Nashville, Tennessee
           </p>
 
-          <Countdown targetDate="2026-08-29T17:00:00-05:00" />
+          <Countdown targetDate="2026-08-29T17:15:00-05:00" />
 
           <Link
             href="/rsvp"

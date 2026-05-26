@@ -127,7 +127,7 @@ const faqData: FAQCategory[] = [
       {
         question: "What time should I arrive?",
         answer:
-          "The ceremony starts at 5:00 PM, so please arrive by 4:30 PM to get settled. We'll start on time!",
+          "The ceremony starts at 5:15 PM, so please arrive by 4:45 PM to get settled. We'll start on time!",
       },
       {
         question: "Will there be food and drinks?",
