@@ -15,6 +15,8 @@ export default async function AdminDashboardPage() {
     declinedResult,
     allRsvpsResult,
     recentRsvpsResult,
+    eventsResult,
+    perEventRsvpsResult,
   ] = await Promise.all([
     supabase.from("parties").select("id", { count: "exact", head: true }),
     supabase.from("guests").select("id", { count: "exact", head: true }),
@@ -37,6 +39,10 @@ export default async function AdminDashboardPage() {
       .not("responded_at", "is", null)
       .order("responded_at", { ascending: false })
       .limit(10),
+    // All events for per-event breakdown
+    supabase.from("events").select("id, name, slug").order("sort_order"),
+    // All RSVPs with event_id and status for per-event counts
+    supabase.from("rsvps").select("event_id, status").not("responded_at", "is", null),
   ]);
 
   const totalParties = partiesResult.count ?? 0;
@@ -68,6 +74,18 @@ export default async function AdminDashboardPage() {
 
   const recentRsvps = recentRsvpsResult.data ?? [];
 
+  // Per-event RSVP breakdown
+  const events = eventsResult.data ?? [];
+  const perEventRsvps = perEventRsvpsResult.data ?? [];
+  const eventBreakdown = events.map((event) => {
+    const eventRsvps = perEventRsvps.filter((r) => r.event_id === event.id);
+    return {
+      name: event.name,
+      attending: eventRsvps.filter((r) => r.status === "attending").length,
+      declined: eventRsvps.filter((r) => r.status === "declined").length,
+    };
+  });
+
   return (
     <div className="max-w-5xl">
       <h1 className="font-heading text-3xl text-deep-sage mb-8">Dashboard</h1>
@@ -87,6 +105,28 @@ export default async function AdminDashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-10">
         <SummaryCard label="No Response Yet" value={noResponseCount} />
         <SummaryCard label="Total RSVPs" value={totalRsvps} subtitle="(individual guest + event responses)" />
+      </div>
+
+      {/* Per-event breakdown */}
+      <h2 className="font-heading text-xl text-deep-sage mb-4">
+        RSVPs by Event
+      </h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
+        {eventBreakdown.map((evt) => (
+          <div key={evt.name} className="bg-white rounded-xl border border-sage/30 p-6">
+            <p className="text-sm font-medium text-dark mb-3">{evt.name}</p>
+            <div className="flex items-baseline gap-6">
+              <div>
+                <p className="text-2xl font-heading text-green-700">{evt.attending}</p>
+                <p className="text-xs text-dark/50">attending</p>
+              </div>
+              <div>
+                <p className="text-2xl font-heading text-red-600">{evt.declined}</p>
+                <p className="text-xs text-dark/50">declined</p>
+              </div>
+            </div>
+          </div>
+        ))}
       </div>
 
       {/* Recent activity */}
