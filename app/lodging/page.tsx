@@ -85,7 +85,7 @@ export default function LodgingPage() {
       ],
     },
     {
-      title: '"No Place in the Inn?"',
+      title: '"No Room in the Inn?"',
       description: "I can probably find you a couch to sleep on.",
       hotels: [],
     },
