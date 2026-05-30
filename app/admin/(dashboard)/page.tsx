@@ -20,13 +20,14 @@ export default async function AdminDashboardPage() {
   ] = await Promise.all([
     supabase.from("parties").select("id", { count: "exact", head: true }),
     supabase.from("guests").select("id", { count: "exact", head: true }),
+    // Fetch guest_id for attending/declined to count unique people
     supabase
       .from("rsvps")
-      .select("id", { count: "exact", head: true })
+      .select("guest_id")
       .eq("status", "attending"),
     supabase
       .from("rsvps")
-      .select("id", { count: "exact", head: true })
+      .select("guest_id")
       .eq("status", "declined"),
     supabase.from("rsvps").select("id", { count: "exact", head: true }),
     // Recent RSVPs: join with guest and event info for the activity feed.
@@ -47,8 +48,9 @@ export default async function AdminDashboardPage() {
 
   const totalParties = partiesResult.count ?? 0;
   const totalGuests = guestsResult.count ?? 0;
-  const attendingCount = attendingResult.count ?? 0;
-  const declinedCount = declinedResult.count ?? 0;
+  // Count unique guests, not RSVP rows (a guest RSVPs to multiple events)
+  const attendingCount = new Set((attendingResult.data ?? []).map((r) => r.guest_id)).size;
+  const declinedCount = new Set((declinedResult.data ?? []).map((r) => r.guest_id)).size;
   const totalRsvps = allRsvpsResult.count ?? 0;
 
   // "Pending" = total guests minus those who have any RSVP response.

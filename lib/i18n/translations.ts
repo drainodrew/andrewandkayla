@@ -176,7 +176,7 @@ const translations = {
         {
           title: "The Big Day",
           items: [
-            { q: "When is the wedding?", a: "Saturday, August 29, 2026! The ceremony begins at 5:15 PM. We can\u2019t wait to celebrate with you." },
+            { q: "When is the wedding?", a: "Saturday, August 29, 2026! Please arrive at 5:15 PM for light grazing and welcome drinks before the ceremony. We can\u2019t wait to celebrate with you." },
             { q: "Where is the wedding?", a: "Belle Meade Mansion in Nashville, Tennessee. The address is 110 Leake Ave, Nashville, TN 37205. It\u2019s a gorgeous historic estate and we\u2019re so excited to share it with you." },
             { q: "What is the dress code?", a: "Garden Formal. For the guys, think linen suits, loafers or cowboy boots, and a tie, bow tie, or bolo tie. Ladies are encouraged to wear floor-length dresses in soft summer colors, florals, and romantic textures. Check out our {whatToWearLink} page for inspiration!" },
             { q: "Will the ceremony and reception be at the same location?", a: "Yes! Both the ceremony and reception will be held at Belle Meade Mansion, so no need to worry about getting between venues." },
@@ -187,7 +187,7 @@ const translations = {
           items: [
             { q: "How do I RSVP?", a: "Right here on this website! Head over to the {rsvpLink}, search for your name, and let us know if you can make it. No stamps required." },
             { q: "Can I bring a date?", a: "Our venue has very specific size constraints. Please do not bring additional guests outside of those listed on your invitation / RSVP form." },
-            { q: "When is the RSVP deadline?", a: "Please RSVP by June 1, 2026. We need final headcounts for catering and seating, so the sooner the better!" },
+            { q: "When is the RSVP deadline?", a: "Please RSVP by July 1, 2026. We need final headcounts for catering and seating, so the sooner the better!" },
             { q: "I\u2019m having trouble with the RSVP. What do I do?", a: "No worries! Just reach out to Andrew or Kayla directly and we\u2019ll help you out. Technology is great until it isn\u2019t." },
           ],
         },
@@ -203,7 +203,7 @@ const translations = {
         {
           title: "Day Of",
           items: [
-            { q: "What time should I arrive?", a: "The ceremony starts at 5:15 PM, so please arrive by 4:45 PM to get settled. We\u2019ll start on time!" },
+            { q: "What time should I arrive?", a: "Please arrive at 5:15 PM for light grazing and welcome drinks before the ceremony. We\u2019ll get started shortly after!" },
             { q: "Will there be food and drinks?", a: "Absolutely. Dinner and an open bar will be waiting for you at the reception. Come hungry and thirsty." },
             { q: "Can I take photos during the ceremony?", a: "We\u2019ll have a wonderful photographer capturing everything, so we ask that you keep phones away during the ceremony. But at the reception? Go wild. We love a good candid." },
           ],
@@ -443,7 +443,7 @@ const translations = {
         {
           title: "El Gran D\u00eda",
           items: [
-            { q: "\u00bfCu\u00e1ndo es la boda?", a: "\u00a1S\u00e1bado, 29 de agosto de 2026! La ceremonia comienza a las 5:15 PM. \u00a1No podemos esperar para celebrar contigo!" },
+            { q: "\u00bfCu\u00e1ndo es la boda?", a: "\u00a1S\u00e1bado, 29 de agosto de 2026! Por favor llega a las 5:15 PM para bocadillos y bebidas de bienvenida antes de la ceremonia. \u00a1No podemos esperar para celebrar contigo!" },
             { q: "\u00bfD\u00f3nde es la boda?", a: "Belle Meade Mansion en Nashville, Tennessee. La direcci\u00f3n es 110 Leake Ave, Nashville, TN 37205. Es una hermosa finca hist\u00f3rica y estamos emocionados de compartirla contigo." },
             { q: "\u00bfCu\u00e1l es el c\u00f3digo de vestimenta?", a: "Formal de Jard\u00edn. Para los caballeros, piensen en trajes de lino, mocasines o botas vaqueras, y corbata o bolo. Las damas son bienvenidas a usar vestidos largos en colores suaves de verano, florales y texturas rom\u00e1nticas. \u00a1Visita nuestra p\u00e1gina de {whatToWearLink} para inspiraci\u00f3n!" },
             { q: "\u00bfLa ceremonia y la recepci\u00f3n ser\u00e1n en el mismo lugar?", a: "\u00a1S\u00ed! Tanto la ceremonia como la recepci\u00f3n se llevar\u00e1n a cabo en Belle Meade Mansion, as\u00ed que no te preocupes por el transporte entre lugares." },
@@ -454,7 +454,7 @@ const translations = {
           items: [
             { q: "\u00bfC\u00f3mo confirmo mi asistencia?", a: "\u00a1Aqu\u00ed mismo en este sitio web! Ve a la {rsvpLink}, busca tu nombre y d\u00e9janos saber si puedes asistir. No se necesitan estampillas." },
             { q: "\u00bfPuedo llevar acompa\u00f1ante?", a: "Nuestro lugar tiene restricciones de tama\u00f1o muy espec\u00edficas. Por favor no traiga invitados adicionales fuera de los que figuran en su invitaci\u00f3n / formulario RSVP." },
-            { q: "\u00bfCu\u00e1l es la fecha l\u00edmite para confirmar?", a: "Por favor confirma antes del 1 de junio de 2026. Necesitamos los n\u00fameros finales para el catering y los asientos, \u00a1as\u00ed que mientras antes, mejor!" },
+            { q: "\u00bfCu\u00e1l es la fecha l\u00edmite para confirmar?", a: "Por favor confirma antes del 1 de julio de 2026. Necesitamos los n\u00fameros finales para el catering y los asientos, \u00a1as\u00ed que mientras antes, mejor!" },
             { q: "Tengo problemas con el RSVP. \u00bfQu\u00e9 hago?", a: "\u00a1No te preocupes! Comun\u00edcate directamente con Andrew o Kayla y te ayudaremos. La tecnolog\u00eda es genial hasta que no lo es." },
           ],
         },
@@ -470,7 +470,7 @@ const translations = {
         {
           title: "El D\u00eda De",
           items: [
-            { q: "\u00bfA qu\u00e9 hora debo llegar?", a: "La ceremonia comienza a las 5:15 PM, as\u00ed que por favor llega a las 4:45 PM para acomodarte. \u00a1Comenzaremos a tiempo!" },
+            { q: "\u00bfA qu\u00e9 hora debo llegar?", a: "Por favor llega a las 5:15 PM para bocadillos y bebidas de bienvenida antes de la ceremonia. \u00a1Comenzaremos poco despu\u00e9s!" },
             { q: "\u00bfHabr\u00e1 comida y bebidas?", a: "Por supuesto. La cena y una barra libre te esperar\u00e1n en la recepci\u00f3n. Ven con hambre y sed." },
             { q: "\u00bfPuedo tomar fotos durante la ceremonia?", a: "Tendremos un fot\u00f3grafo maravilloso capturando todo, as\u00ed que pedimos que guarden los tel\u00e9fonos durante la ceremonia. \u00bfPero en la recepci\u00f3n? Adelante. Nos encantan las fotos espont\u00e1neas." },
           ],

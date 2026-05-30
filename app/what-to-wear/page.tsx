@@ -40,7 +40,6 @@ const INSPO_IMAGES_UNSHUFFLED: InspoImage[] = [
   { src: "/images/photos/attire/bond.jpg", alt: "Linen suit inspiration", aspect: "square" },
   { src: "/images/photos/attire/IMG_5582.JPG", alt: "Floral dress inspiration", aspect: "tall" },
   { src: "/images/photos/attire/western.jpg", alt: "Western formal inspiration", aspect: "tall" },
-  { src: "/images/photos/attire/IMG_5598.JPG", alt: "Garden party champagne toast", aspect: "square" },
   { src: "/images/photos/attire/cigar.jpg", alt: "Linen suit with patterned tie", aspect: "tall" },
   { src: "/images/photos/attire/IMG_5584.JPG", alt: "Floral maxi dress", aspect: "tall" },
   { src: "/images/photos/attire/mj1.jpg", alt: "Style inspiration", aspect: "square" },
@@ -222,6 +221,7 @@ export default function WhatToWearPage() {
                 height={img.aspect === "tall" ? 900 : img.aspect === "wide" ? 400 : 600}
                 className="w-full h-auto object-cover transition-transform duration-700 group-hover:scale-105"
                 sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 33vw"
+                loading="eager"
               />
               {/* Subtle overlay on hover */}
               <div className="absolute inset-0 bg-gradient-to-t from-dark/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none" />

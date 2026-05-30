@@ -49,8 +49,8 @@ export async function getRsvpSession() {
 
   const supabase = createServiceClient();
 
-  // Fetch party, guests, events, and existing RSVPs in parallel
-  const [partyResult, guestsResult, eventsResult] = await Promise.all([
+  // Fetch party, guests, all events, and party-specific event invites in parallel
+  const [partyResult, guestsResult, allEventsResult, partyEventsResult] = await Promise.all([
     supabase
       .from("parties")
       .select("id, invite_name, party_size")
@@ -62,7 +62,19 @@ export async function getRsvpSession() {
       .eq("party_id", partyId)
       .order("created_at"),
     supabase.from("events").select("*").order("sort_order"),
+    // Which events this party is explicitly invited to
+    supabase.from("party_events").select("event_id").eq("party_id", partyId),
   ]);
+
+  // Filter events: wedding is universal (slug contains "wedding"),
+  // other events require an explicit party_events row
+  const invitedEventIds = new Set((partyEventsResult.data ?? []).map((pe) => pe.event_id));
+  const eventsResult = {
+    ...allEventsResult,
+    data: (allEventsResult.data ?? []).filter(
+      (e) => e.slug?.includes("wedding") || invitedEventIds.has(e.id)
+    ),
+  };
 
   if (partyResult.error || !partyResult.data) {
     // Cookie references a party that no longer exists

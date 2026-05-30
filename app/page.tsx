@@ -40,10 +40,10 @@ function Countdown({ targetDate }: { targetDate: string }) {
     <div className="flex justify-center gap-5 sm:gap-10">
       {units.map(({ value, label }) => (
         <div key={label} className="text-center">
-          <span className="block text-3xl sm:text-5xl font-heading text-pink/80 sm:text-pink">
+          <span className="block text-3xl sm:text-5xl font-heading text-pink">
             {value}
           </span>
-          <span className="text-[10px] sm:text-xs uppercase tracking-[0.2em] text-dark/50 mt-1 block">
+          <span className="text-[10px] sm:text-xs uppercase tracking-[0.2em] text-sage mt-1 block">
             {label}
           </span>
         </div>
@@ -60,10 +60,27 @@ export default function Home() {
     <div>
       {/* Hero section */}
       <section className="flex flex-col items-center text-center">
-        {/* Hero illustration - cropped tighter on mobile for a banner feel */}
-        <div className="w-full px-4 sm:px-8 sm:pt-2 max-h-[180px] sm:max-h-none overflow-hidden">
+
+        {/* Mobile layout: tagline, name, then image */}
+        <div className="sm:hidden flex flex-col items-center px-4 pt-4">
+          <p
+            className="text-sm text-[#5C3D2E]/50 mb-2 tracking-[0.15em]"
+            style={{ fontFamily: "var(--font-hero)" }}
+          >
+            {t.home.tagline}
+          </p>
+          <h1
+            className="text-[2.6rem] min-[430px]:text-5xl text-pink/90 mb-4 leading-tight whitespace-nowrap"
+            style={{ fontFamily: "var(--font-hero)" }}
+          >
+            Andrew & Kayla
+          </h1>
+        </div>
+
+        {/* Hero illustration */}
+        <div className="w-full px-4 sm:px-8 sm:pt-2 sm:max-h-none overflow-hidden">
           <Image
-            src="/images/graphics/hero-illustration-v2.png"
+            src="/images/graphics/hero-v3.jpg"
             alt="Illustration of Andrew and Kayla dancing at their wedding celebration"
             width={1800}
             height={600}
@@ -72,43 +89,36 @@ export default function Home() {
           />
         </div>
 
-        {/* Text content */}
-        <div className="flex flex-col items-center px-4 mt-3 sm:mt-10">
-          {/* Tagline */}
+        {/* Desktop: tagline and name after image */}
+        <div className="hidden sm:flex flex-col items-center px-4 mt-10">
           <p
-            className="text-sm sm:text-lg text-[#5C3D2E]/50 mb-2 sm:mb-3 tracking-[0.15em]"
+            className="text-lg text-[#5C3D2E]/50 mb-3 tracking-[0.15em]"
             style={{ fontFamily: "var(--font-hero)" }}
           >
             {t.home.tagline}
           </p>
-
-          {/* Mobile: stacked name, boosted contrast */}
           <h1
-            className="sm:hidden text-5xl text-pink/90 mb-3 leading-tight"
-            style={{ fontFamily: "var(--font-hero)" }}
-          >
-            Andrew<br />&<br />Kayla
-          </h1>
-          {/* Desktop: single line name */}
-          <h1
-            className="hidden sm:block text-7xl lg:text-8xl text-pink mb-6"
+            className="text-7xl lg:text-8xl text-pink mb-6"
             style={{ fontFamily: "var(--font-hero)" }}
           >
             Andrew & Kayla
           </h1>
+        </div>
 
-          <p className="text-xs sm:text-sm uppercase tracking-[0.25em] text-sage/70 mb-1 sm:mb-2">
+        {/* Shared content: date, venue, countdown, RSVP */}
+        <div className="flex flex-col items-center px-4 mt-3 sm:mt-0">
+          <p className="text-xs sm:text-sm uppercase tracking-[0.25em] text-dark/50 mb-1 sm:mb-2">
             {t.home.date}
           </p>
-          {/* Mobile: venue smaller */}
+          {/* Mobile: venue */}
           <div
-            className="sm:hidden text-[#5C3D2E]/40 mt-2 mb-4 text-center"
+            className="sm:hidden text-[#5C3D2E]/40 mt-2 mb-6 text-center"
             style={{ fontFamily: "var(--font-hero)" }}
           >
             <p className="text-[15px]">{t.home.venue}</p>
             <p className="text-[13px]">{t.home.city}</p>
           </div>
-          {/* Desktop: single line for venue */}
+          {/* Desktop: venue */}
           <p
             className="hidden sm:block text-lg text-[#5C3D2E]/40 mb-10"
             style={{ fontFamily: "var(--font-hero)" }}
@@ -120,7 +130,7 @@ export default function Home() {
 
           <Link
             href="/rsvp"
-            className="mt-5 sm:mt-8 inline-block rounded-lg bg-pink px-8 py-3 text-[#5C3D2E]/40 transition-colors hover:bg-pink/80 focus:outline-none focus:ring-2 focus:ring-sage"
+            className="mt-8 sm:mt-10 inline-block rounded-lg bg-pink px-8 py-3 text-[#5C3D2E]/40 transition-colors hover:bg-pink/80 focus:outline-none focus:ring-2 focus:ring-sage"
             style={{ fontFamily: "var(--font-hero)" }}
           >
             {t.home.rsvp}
