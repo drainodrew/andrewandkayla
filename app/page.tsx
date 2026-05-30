@@ -59,7 +59,7 @@ export default function Home() {
   return (
     <div>
       {/* Hero section - nav + hero = 100vh on mobile */}
-      <section className="flex flex-col items-center text-center min-h-[calc(100dvh-64px)] sm:min-h-0 justify-between sm:justify-start">
+      <section className="flex flex-col items-center text-center h-[calc(100dvh-64px)] sm:h-auto overflow-hidden sm:overflow-visible justify-between sm:justify-start">
 
         {/* Mobile layout: tagline, name, then image */}
         <div className="sm:hidden flex flex-col items-center px-4 pt-8">
