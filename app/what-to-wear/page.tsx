@@ -207,7 +207,7 @@ export default function WhatToWearPage() {
       </p>
 
       {/* Masonry-style gallery */}
-      <div className="columns-2 sm:columns-3 gap-3 sm:gap-4 [column-fill:_balance]">
+      <div className="columns-2 sm:columns-3 gap-3 sm:gap-4">
         {INSPO_IMAGES.map((img, i) => (
           <div
             key={img.src}

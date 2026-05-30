@@ -58,11 +58,11 @@ export default function Home() {
 
   return (
     <div>
-      {/* Hero section */}
-      <section className="flex flex-col items-center text-center">
+      {/* Hero section - nav + hero = 100vh on mobile */}
+      <section className="flex flex-col items-center text-center min-h-[calc(100dvh-64px)] sm:min-h-0 justify-between sm:justify-start">
 
         {/* Mobile layout: tagline, name, then image */}
-        <div className="sm:hidden flex flex-col items-center px-4 pt-4">
+        <div className="sm:hidden flex flex-col items-center px-4 pt-8">
           <p
             className="text-sm text-[#5C3D2E]/50 mb-2 tracking-[0.15em]"
             style={{ fontFamily: "var(--font-hero)" }}
@@ -78,7 +78,7 @@ export default function Home() {
         </div>
 
         {/* Hero illustration */}
-        <div className="w-full px-4 sm:px-8 sm:pt-2 sm:max-h-none overflow-hidden">
+        <div className="w-full px-0 sm:px-8 sm:pt-2 sm:max-h-none overflow-hidden">
           <Image
             src="/images/graphics/hero-v3.jpg"
             alt="Illustration of Andrew and Kayla dancing at their wedding celebration"
@@ -136,7 +136,7 @@ export default function Home() {
             {t.home.rsvp}
           </Link>
 
-          <div className="mb-16 sm:mb-32" />
+          <div className="mb-6 sm:mb-32" />
         </div>
       </section>
 
