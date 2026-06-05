@@ -408,37 +408,54 @@ export default function RegistryPage() {
           {t.registry.comingSoon}
         </p>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 lg:gap-8">
-          {sortedItems.map((item) => (
-            <RegistryCard
-              key={item.id}
-              item={item}
-              onClaim={handleClaim}
-              onReturn={handleReturn}
-            />
-          ))}
-        </div>
-      )}
+        <>
+          {/* First 2 rows: 4 items on mobile (2-col), 6 on desktop (3-col) */}
+          <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 lg:gap-8">
+            {sortedItems.slice(0, 6).map((item) => (
+              <RegistryCard
+                key={item.id}
+                item={item}
+                onClaim={handleClaim}
+                onReturn={handleReturn}
+              />
+            ))}
+          </div>
 
-      {/* Amazon Registry CTA */}
-      <div className="mt-16 mb-8 text-center">
-        <div className="rounded-2xl border-2 border-dashed border-sage/40 bg-sage/10 p-8 sm:p-10 max-w-xl mx-auto">
-          <h2 className="text-xl sm:text-2xl font-heading text-deep-sage mb-3">
-            {t.registry.amazonTitle}
-          </h2>
-          <p className="text-sm text-dark/60 mb-6 leading-relaxed">
-            {t.registry.amazonDesc}
-          </p>
-          <a
-            href="https://www.amazon.com/wedding/share/andrewandkayla4ever"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-block rounded-lg bg-pink px-8 py-3 text-sm font-medium text-dark transition-colors hover:bg-pink/80 focus:outline-none focus:ring-2 focus:ring-sage"
-          >
-            {t.registry.amazonButton}
-          </a>
-        </div>
-      </div>
+          {/* Amazon Registry CTA after first 2 rows */}
+          <div className="my-8 sm:my-12 text-center">
+            <div className="rounded-2xl border-2 border-dashed border-sage/40 bg-sage/10 p-6 sm:p-10 max-w-xl mx-auto">
+              <h2 className="text-xl sm:text-2xl font-heading text-deep-sage mb-3">
+                {t.registry.amazonTitle}
+              </h2>
+              <p className="text-sm text-dark/60 mb-6 leading-relaxed">
+                {t.registry.amazonDesc}
+              </p>
+              <a
+                href="https://www.amazon.com/wedding/share/andrewandkayla4ever"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block rounded-lg bg-pink px-8 py-3 text-sm font-medium text-dark transition-colors hover:bg-pink/80 focus:outline-none focus:ring-2 focus:ring-sage"
+              >
+                {t.registry.amazonButton}
+              </a>
+            </div>
+          </div>
+
+          {/* Remaining items */}
+          {sortedItems.length > 6 && (
+            <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 lg:gap-8">
+              {sortedItems.slice(6).map((item) => (
+                <RegistryCard
+                  key={item.id}
+                  item={item}
+                  onClaim={handleClaim}
+                  onReturn={handleReturn}
+                />
+              ))}
+            </div>
+          )}
+        </>
+      )}
 
       <div className="mt-12 text-center">
         <p className="text-sm text-dark/50">
