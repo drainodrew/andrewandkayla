@@ -121,7 +121,7 @@ function NeedRsvpModal({ onClose }: { onClose: () => void }) {
  * it allows unlimited contributions.
  */
 function isHoneymoonFund(item: RegistryItem): boolean {
-  return item.price_cents === 0 && !item.merchant_url;
+  return item.name.toLowerCase().includes("honeymoon");
 }
 
 function RegistryCard({
@@ -204,16 +204,10 @@ function RegistryCard({
           </p>
         )}
 
-        <div className="flex items-center justify-between gap-3">
-          {!honeymoon && (
-            <span className="text-lg font-medium text-deep-sage">
-              {formatPrice(item.price_cents)}
-            </span>
-          )}
-
+        <div className="flex flex-col gap-2">
           {honeymoon ? (
             <a
-              href="https://venmo.com/drainodrew"
+              href="https://www.amazon.com/wedding/share/andrewandkayla4ever"
               target="_blank"
               rel="noopener noreferrer"
               className="w-full block text-center rounded-full bg-pink px-5 py-2.5 text-sm font-medium text-dark transition-colors hover:bg-pink/80 active:bg-pink/70 focus:outline-none focus:ring-2 focus:ring-sage"
@@ -226,7 +220,7 @@ function RegistryCard({
             <button
               type="button"
               onClick={() => onReturn(item.id)}
-              className="rounded-full border border-sage/40 px-5 py-2.5 text-sm font-medium text-dark/70 transition-colors hover:bg-sage/10 active:bg-sage/20"
+              className="w-full rounded-full border border-sage/40 px-5 py-2.5 text-sm font-medium text-dark/70 transition-colors hover:bg-sage/10 active:bg-sage/20"
             >
               {rt.registry.iChangedMyMind}
             </button>
@@ -238,10 +232,16 @@ function RegistryCard({
             <button
               type="button"
               onClick={() => onClaim(item.id, item.merchant_url)}
-              className="rounded-full bg-pink px-5 py-2.5 text-sm font-medium text-dark transition-colors hover:bg-pink/80 active:bg-pink/70 focus:outline-none focus:ring-2 focus:ring-sage"
+              className="w-full rounded-full bg-pink px-5 py-2.5 text-sm font-medium text-dark transition-colors hover:bg-pink/80 active:bg-pink/70 focus:outline-none focus:ring-2 focus:ring-sage"
             >
               {rt.registry.iWantToBuy}
             </button>
+          )}
+
+          {!honeymoon && (
+            <span className="text-lg font-medium text-deep-sage text-center">
+              {formatPrice(item.price_cents)}
+            </span>
           )}
         </div>
       </div>
