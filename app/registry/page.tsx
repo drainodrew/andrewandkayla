@@ -167,7 +167,7 @@ function RegistryCard({
             className={`object-cover transition-transform duration-500 ${
               isHovered && !isPurchased ? "scale-105" : "scale-100"
             }`}
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            sizes="(max-width: 640px) 50vw, (max-width: 1024px) 50vw, 33vw"
           />
         ) : (
           <div className="absolute inset-0 flex items-center justify-center bg-pink/10">
@@ -408,7 +408,7 @@ export default function RegistryPage() {
           {t.registry.comingSoon}
         </p>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-8">
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6 lg:gap-8">
           {sortedItems.map((item) => (
             <RegistryCard
               key={item.id}
@@ -420,7 +420,27 @@ export default function RegistryPage() {
         </div>
       )}
 
-      <div className="mt-20 text-center">
+      {/* Amazon Registry CTA */}
+      <div className="mt-16 mb-8 text-center">
+        <div className="rounded-2xl border-2 border-dashed border-sage/40 bg-sage/10 p-8 sm:p-10 max-w-xl mx-auto">
+          <h2 className="text-xl sm:text-2xl font-heading text-deep-sage mb-3">
+            {t.registry.amazonTitle}
+          </h2>
+          <p className="text-sm text-dark/60 mb-6 leading-relaxed">
+            {t.registry.amazonDesc}
+          </p>
+          <a
+            href="https://www.amazon.com/wedding/share/andrewandkayla4ever"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-block rounded-lg bg-pink px-8 py-3 text-sm font-medium text-dark transition-colors hover:bg-pink/80 focus:outline-none focus:ring-2 focus:ring-sage"
+          >
+            {t.registry.amazonButton}
+          </a>
+        </div>
+      </div>
+
+      <div className="mt-12 text-center">
         <p className="text-sm text-dark/50">
           {t.registry.howItWorks}
         </p>
