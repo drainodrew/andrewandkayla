@@ -88,7 +88,7 @@ export default function Home() {
         </div>
 
         {/* Hero illustration */}
-        <div className="w-full px-0 sm:px-8 sm:pt-2 sm:max-h-none overflow-hidden">
+        <div className="w-full px-0 sm:px-8 sm:pt-2 sm:max-h-none overflow-hidden sm:overflow-visible">
           <Image
             src="/images/graphics/hero-v3.jpg"
             alt="Illustration of Andrew and Kayla dancing at their wedding celebration"

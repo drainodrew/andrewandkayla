@@ -165,12 +165,14 @@ export function RsvpForm({
           >
             Schedule
           </Link>
-          <Link
-            href="/registry"
+          <a
+            href="https://registry.theknot.com/andrew-manuel-kayla-wegner-august-2026-tn/78471685"
+            target="_blank"
+            rel="noopener noreferrer"
             className="rounded-xl border-2 border-pink bg-pink/10 p-4 text-sm font-medium text-dark transition-colors hover:bg-pink/20 focus:outline-none focus:ring-2 focus:ring-sage"
           >
             Registry
-          </Link>
+          </a>
           <Link
             href="/things-to-do"
             className="rounded-xl border border-sage/30 bg-white p-4 text-sm font-medium text-dark transition-colors hover:border-pink hover:bg-pink/5 focus:outline-none focus:ring-2 focus:ring-sage"

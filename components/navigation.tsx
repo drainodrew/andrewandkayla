@@ -5,6 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useLanguage, getTranslations } from "@/lib/i18n";
 
+const THEKNOT_REGISTRY_URL = "https://registry.theknot.com/andrew-manuel-kayla-wegner-august-2026-tn/78471685";
+
 const NAV_HREFS = [
   "/",
   "/what-to-wear",
@@ -12,7 +14,7 @@ const NAV_HREFS = [
   "/lodging",
   "/things-to-do",
   "/faq",
-  "/registry",
+  THEKNOT_REGISTRY_URL,
 ] as const;
 
 export function Navigation() {
@@ -37,6 +39,7 @@ export function Navigation() {
                 : href === "/faq"
                   ? t.nav.faq
                   : t.nav.registry,
+    external: href === THEKNOT_REGISTRY_URL,
   }));
 
   return (
@@ -51,18 +54,29 @@ export function Navigation() {
 
         {/* Desktop nav */}
         <ul className="hidden md:flex items-center gap-6">
-          {navLinks.map(({ href, label }) => (
+          {navLinks.map(({ href, label, external }) => (
             <li key={href}>
-              <Link
-                href={href}
-                className={`text-sm font-medium transition-colors hover:text-deep-sage ${
-                  pathname === href
-                    ? "text-deep-sage underline underline-offset-4 decoration-pink decoration-2"
-                    : "text-dark/70"
-                }`}
-              >
-                {label}
-              </Link>
+              {external ? (
+                <a
+                  href={href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm font-medium text-dark/70 transition-colors hover:text-deep-sage"
+                >
+                  {label}
+                </a>
+              ) : (
+                <Link
+                  href={href}
+                  className={`text-sm font-medium transition-colors hover:text-deep-sage ${
+                    pathname === href
+                      ? "text-deep-sage underline underline-offset-4 decoration-pink decoration-2"
+                      : "text-dark/70"
+                  }`}
+                >
+                  {label}
+                </Link>
+              )}
             </li>
           ))}
           <li>
@@ -135,19 +149,31 @@ export function Navigation() {
       {isOpen && (
         <div className="md:hidden border-t border-sage/30 bg-cream">
           <ul className="flex flex-col px-4 py-2">
-            {navLinks.map(({ href, label }) => (
+            {navLinks.map(({ href, label, external }) => (
               <li key={href}>
-                <Link
-                  href={href}
-                  className={`block py-3 text-sm font-medium transition-colors ${
-                    pathname === href
-                      ? "text-deep-sage"
-                      : "text-dark/70 hover:text-deep-sage"
-                  }`}
-                  onClick={() => setIsOpen(false)}
-                >
-                  {label}
-                </Link>
+                {external ? (
+                  <a
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block py-3 text-sm font-medium text-dark/70 transition-colors hover:text-deep-sage"
+                    onClick={() => setIsOpen(false)}
+                  >
+                    {label}
+                  </a>
+                ) : (
+                  <Link
+                    href={href}
+                    className={`block py-3 text-sm font-medium transition-colors ${
+                      pathname === href
+                        ? "text-deep-sage"
+                        : "text-dark/70 hover:text-deep-sage"
+                    }`}
+                    onClick={() => setIsOpen(false)}
+                  >
+                    {label}
+                  </Link>
+                )}
               </li>
             ))}
             <li className="pt-2 pb-3">

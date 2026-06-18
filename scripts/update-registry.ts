@@ -102,11 +102,13 @@ async function main() {
         name: "Le Creuset casserole dish (Foret)",
       },
     },
-    // Hestan bakeware 7pc: needs photo (leaving note, no image provided yet)
+    // Hestan bakeware 7pc: add photo
     {
       id: "8ae7f6ca-15e8-4487-8b94-b373faf1f3db",
       name: "Hestan bakeware sheets set of 7",
-      changes: {},
+      changes: {
+        image_url: "/images/registry/Hestan.jpg",
+      },
     },
     // YETI Hopper M20 Backpack Cooler: fix link
     {
