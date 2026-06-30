@@ -25,6 +25,7 @@ interface SessionData {
   }[] | null;
   rsvps?: Record<string, Record<string, string>>;
   dietaryNotes?: Record<string, string>;
+  invitedGuestsByEvent?: Record<string, string[]>;
 }
 
 export function RsvpFlow() {
@@ -57,6 +58,7 @@ export function RsvpFlow() {
         events={session.events}
         existingRsvps={session.rsvps || {}}
         existingDietary={session.dietaryNotes || {}}
+        invitedGuestsByEvent={session.invitedGuestsByEvent || {}}
         onSessionCleared={loadSession}
       />
     );

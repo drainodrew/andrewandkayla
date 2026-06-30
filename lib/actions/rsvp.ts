@@ -76,6 +76,12 @@ export async function getRsvpSession() {
     ),
   };
 
+  // Per-guest event filtering for the rehearsal dinner.
+  // Some families are invited as a party, but only the parents (not kids)
+  // are invited to the rehearsal dinner specifically.
+  const allGuests = guestsResult.data ?? [];
+  const guestsByEvent = buildRehearsalGuestFilter(allGuests, eventsResult.data ?? []);
+
   if (partyResult.error || !partyResult.data) {
     // Cookie references a party that no longer exists
     const cs = await cookies();
@@ -116,12 +122,21 @@ export async function getRsvpSession() {
     }
   }
 
+  // Convert guestsByEvent map to a plain object for serialization.
+  // Keys are event IDs, values are arrays of invited guest IDs.
+  // If an event has no entry, all guests in the party are invited.
+  const invitedGuestsByEvent: Record<string, string[]> = {};
+  for (const [eventId, guestIdSet] of guestsByEvent) {
+    invitedGuestsByEvent[eventId] = Array.from(guestIdSet);
+  }
+
   return {
     party: partyResult.data,
     guests: guestsResult.data,
     events: eventsResult.data,
     rsvps,
     dietaryNotes,
+    invitedGuestsByEvent,
   };
 }
 
@@ -210,4 +225,57 @@ export async function clearRsvpSession() {
   const cookieStore = await cookies();
   cookieStore.delete(COOKIE_NAME);
   return { success: true };
+}
+
+/**
+ * For the rehearsal dinner, some family parties have kids who are NOT
+ * invited to the rehearsal dinner (only the parents are). This function
+ * returns a Map of event_id -> Set<guest_id> for events that need
+ * per-guest filtering. If an event has no entry in the map, all guests
+ * in the party are invited.
+ *
+ * Families where only specific members are invited to rehearsal dinner:
+ * - Moore family: Joe & Julia only (not Matthew, Mary, Keagan, Madeleine)
+ * - Myers family: Tina & Tony only (not Knox, Emmylayne)
+ * - Huncke, McGuire, Wegner families: ALL members are invited
+ */
+const REHEARSAL_DINNER_ONLY: Map<string, Set<string>> = new Map([
+  // key: "FirstName LastName" of guests who ARE invited
+  // Matched against guests at runtime by name
+  ["Moore", new Set(["Joe Moore", "Julia Moore"])],
+  ["Myers", new Set(["Tina Myers", "Tony Myers"])],
+]);
+
+function buildRehearsalGuestFilter(
+  guests: { id: string; first_name: string; last_name: string }[],
+  events: { id: string; slug: string }[]
+): Map<string, Set<string>> {
+  const result = new Map<string, Set<string>>();
+
+  const rehearsalEvent = events.find((e) => e.slug === "rehearsal-dinner");
+  if (!rehearsalEvent) return result;
+
+  // Check if any guest in this party belongs to a restricted family
+  for (const [familyName, allowedNames] of REHEARSAL_DINNER_ONLY) {
+    const familyGuests = guests.filter((g) => g.last_name === familyName);
+    if (familyGuests.length === 0) continue;
+
+    // This party has guests from a restricted family.
+    // Only include guests whose full name is in the allowed set.
+    const invitedIds = new Set<string>();
+    for (const g of guests) {
+      const fullName = `${g.first_name} ${g.last_name}`;
+      if (allowedNames.has(fullName)) {
+        invitedIds.add(g.id);
+      }
+    }
+
+    // Only set the filter if we actually excluded someone.
+    // If all guests are invited, no filter needed.
+    if (invitedIds.size < guests.length && invitedIds.size > 0) {
+      result.set(rehearsalEvent.id, invitedIds);
+    }
+  }
+
+  return result;
 }

@@ -29,6 +29,7 @@ interface RsvpFormProps {
   events: Event[];
   existingRsvps: Record<string, Record<string, string>>;
   existingDietary: Record<string, string>;
+  invitedGuestsByEvent: Record<string, string[]>;
   onSessionCleared: () => void;
 }
 
@@ -38,8 +39,19 @@ export function RsvpForm({
   events,
   existingRsvps,
   existingDietary,
+  invitedGuestsByEvent,
   onSessionCleared,
 }: RsvpFormProps) {
+  // Which guests are invited to a given event. If invitedGuestsByEvent
+  // has an entry for the event, only those guests are shown. Otherwise
+  // all guests in the party are invited.
+  function guestsForEvent(eventId: string): Guest[] {
+    const invited = invitedGuestsByEvent[eventId];
+    if (!invited || invited.length === 0) return guests;
+    const invitedSet = new Set(invited);
+    return guests.filter((g) => invitedSet.has(g.id));
+  }
+
   // State: rsvps[guestId][eventId] = "attending" | "declined"
   const [rsvps, setRsvps] = useState<Record<string, Record<string, string>>>(
     () => {
@@ -84,10 +96,10 @@ export function RsvpForm({
   };
 
   const handleSubmit = async () => {
-    // Validate: every guest must have a response for every event
+    // Validate: every invited guest must have a response for each event
     const incomplete: string[] = [];
-    for (const guest of guests) {
-      for (const event of events) {
+    for (const event of events) {
+      for (const guest of guestsForEvent(event.id)) {
         if (!rsvps[guest.id]?.[event.id]) {
           incomplete.push(
             `${guest.first_name} ${guest.last_name} for ${event.name}`
@@ -114,8 +126,8 @@ export function RsvpForm({
       status: "attending" | "declined";
     }[] = [];
 
-    for (const guest of guests) {
-      for (const event of events) {
+    for (const event of events) {
+      for (const guest of guestsForEvent(event.id)) {
         rsvpList.push({
           guestId: guest.id,
           eventId: event.id,
@@ -264,7 +276,7 @@ export function RsvpForm({
               )}
 
               <div className="mt-4 space-y-3">
-                {guests.map((guest) => (
+                {guestsForEvent(event.id).map((guest) => (
                   <div
                     key={guest.id}
                     className="flex items-center justify-between gap-4"
