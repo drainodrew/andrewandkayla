@@ -18,7 +18,7 @@ export async function GET(request: NextRequest) {
     request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ||
     "unknown";
 
-  const { allowed } = rateLimit(ip, 10, 60_000);
+  const { allowed } = rateLimit(ip, 30, 60_000);
   if (!allowed) {
     return NextResponse.json(
       { error: "Too many requests. Try again in a minute." },

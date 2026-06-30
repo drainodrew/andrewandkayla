@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { selectParty } from "@/lib/actions/rsvp";
 import { useLanguage, getTranslations } from "@/lib/i18n";
 
@@ -23,6 +23,7 @@ export function GuestSearch({
   const [isSelecting, setIsSelecting] = useState(false);
   const [error, setError] = useState("");
   const [hasSearched, setHasSearched] = useState(false);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const search = useCallback(async (q: string) => {
     if (q.length < 3) {
@@ -54,13 +55,13 @@ export function GuestSearch({
     }
   }, []);
 
-  // Debounce search on input change
+  // Debounce search on input change. Previous timeout is cancelled on
+  // each keystroke so only the final value triggers a request.
   const handleChange = (value: string) => {
     setQuery(value);
+    if (debounceRef.current) clearTimeout(debounceRef.current);
     if (value.length >= 3) {
-      // Simple debounce with setTimeout
-      const timeout = setTimeout(() => search(value), 300);
-      return () => clearTimeout(timeout);
+      debounceRef.current = setTimeout(() => search(value), 350);
     } else {
       setResults([]);
       setHasSearched(false);
