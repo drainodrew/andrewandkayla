@@ -57,18 +57,24 @@ export default function Home() {
   const t = getTranslations(lang);
 
   // Capture viewport height once on mount so mobile browser chrome
-  // hide/show doesn't cause layout shifts (svh/dvh both fail here)
+  // hide/show doesn't cause layout shifts (svh/dvh both fail here).
+  // Only used below sm breakpoint (640px); desktop uses h-auto.
   const [heroHeight, setHeroHeight] = useState<number | null>(null);
+  const [isMobile, setIsMobile] = useState(false);
   useEffect(() => {
-    setHeroHeight(window.innerHeight - 64);
+    const mobile = window.innerWidth < 640;
+    setIsMobile(mobile);
+    if (mobile) {
+      setHeroHeight(window.innerHeight - 64);
+    }
   }, []);
 
   return (
     <div>
       {/* Hero section - nav + hero = 100vh on mobile */}
       <section
-        className="flex flex-col items-center text-center sm:h-auto overflow-hidden sm:overflow-visible justify-between sm:justify-start"
-        style={{ height: heroHeight ? `${heroHeight}px` : 'calc(100svh - 64px)' }}
+        className="flex flex-col items-center text-center overflow-hidden sm:overflow-visible justify-between sm:justify-start"
+        style={isMobile ? { height: heroHeight ? `${heroHeight}px` : 'calc(100svh - 64px)' } : undefined}
       >
 
         {/* Mobile layout: tagline, name, then image */}
