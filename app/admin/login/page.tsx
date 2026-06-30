@@ -46,7 +46,7 @@ export default async function AdminLoginPage({
             A & K Admin
           </h1>
           <p className="text-dark/60 text-sm">
-            Sign in with your email to manage the wedding.
+            Sign in to manage the wedding.
           </p>
         </div>
 
