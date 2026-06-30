@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Fraunces } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import { Navigation } from "@/components/navigation";
 import { LanguageProvider } from "@/lib/i18n";
 import { Footer } from "@/components/footer";
@@ -47,6 +48,7 @@ export default function RootLayout({
           <main className="flex-1">{children}</main>
           <Footer />
         </LanguageProvider>
+        <Analytics />
       </body>
     </html>
   );
