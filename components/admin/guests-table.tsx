@@ -8,27 +8,71 @@ import type { PartyRow } from "@/app/admin/(dashboard)/guests/page";
  * Handles search, expandable rows, and CSV export.
  * All data is passed in from the server component parent.
  */
+type RsvpFilter = "all" | "attending" | "declined" | "no-response";
+type SizeFilter = "all" | "1" | "2" | "3+";
+type DietaryFilter = "all" | "has-notes" | "no-notes";
+
 export function GuestsTable({ parties }: { parties: PartyRow[] }) {
   const [search, setSearch] = useState("");
+  const [rsvpFilter, setRsvpFilter] = useState<RsvpFilter>("all");
+  const [sizeFilter, setSizeFilter] = useState<SizeFilter>("all");
+  const [dietaryFilter, setDietaryFilter] = useState<DietaryFilter>("all");
   const [expandedParties, setExpandedParties] = useState<Set<string>>(
     new Set()
   );
 
-  // Filter parties by search term (matches invite_name, guest names, email)
+  // Filter parties by search term and column filters
   const filtered = useMemo(() => {
-    if (!search.trim()) return parties;
-
-    const term = search.toLowerCase().trim();
     return parties.filter((p) => {
-      if (p.invite_name.toLowerCase().includes(term)) return true;
-      if (p.email?.toLowerCase().includes(term)) return true;
-      return p.guests.some(
-        (g) =>
-          g.first_name.toLowerCase().includes(term) ||
-          g.last_name.toLowerCase().includes(term)
-      );
+      // Text search
+      if (search.trim()) {
+        const term = search.toLowerCase().trim();
+        const matchesText =
+          p.invite_name.toLowerCase().includes(term) ||
+          p.email?.toLowerCase().includes(term) ||
+          p.guests.some(
+            (g) =>
+              g.first_name.toLowerCase().includes(term) ||
+              g.last_name.toLowerCase().includes(term)
+          );
+        if (!matchesText) return false;
+      }
+
+      // RSVP status filter
+      if (rsvpFilter !== "all") {
+        const hasAnyRsvp = p.guests.some((g) => g.rsvps.length > 0);
+        if (rsvpFilter === "no-response") {
+          if (hasAnyRsvp) return false;
+        } else if (rsvpFilter === "attending") {
+          const anyAttending = p.guests.some((g) =>
+            g.rsvps.some((r) => r.status === "attending")
+          );
+          if (!anyAttending) return false;
+        } else if (rsvpFilter === "declined") {
+          const anyDeclined = p.guests.some((g) =>
+            g.rsvps.some((r) => r.status === "declined")
+          );
+          if (!anyDeclined) return false;
+        }
+      }
+
+      // Size filter
+      if (sizeFilter !== "all") {
+        if (sizeFilter === "1" && p.party_size !== 1) return false;
+        if (sizeFilter === "2" && p.party_size !== 2) return false;
+        if (sizeFilter === "3+" && p.party_size < 3) return false;
+      }
+
+      // Dietary filter
+      if (dietaryFilter !== "all") {
+        const hasDiet = p.guests.some((g) => g.dietary_notes);
+        if (dietaryFilter === "has-notes" && !hasDiet) return false;
+        if (dietaryFilter === "no-notes" && hasDiet) return false;
+      }
+
+      return true;
     });
-  }, [parties, search]);
+  }, [parties, search, rsvpFilter, sizeFilter, dietaryFilter]);
 
   function toggleExpand(partyId: string) {
     setExpandedParties((prev) => {
@@ -108,6 +152,55 @@ export function GuestsTable({ parties }: { parties: PartyRow[] }) {
         >
           Export CSV
         </button>
+      </div>
+
+      {/* Column filters */}
+      <div className="flex flex-wrap gap-3 mb-4">
+        <FilterSelect
+          label="RSVP Status"
+          value={rsvpFilter}
+          onChange={(v) => setRsvpFilter(v as RsvpFilter)}
+          options={[
+            { value: "all", label: "All" },
+            { value: "attending", label: "Attending" },
+            { value: "declined", label: "Declined" },
+            { value: "no-response", label: "No Response" },
+          ]}
+        />
+        <FilterSelect
+          label="Party Size"
+          value={sizeFilter}
+          onChange={(v) => setSizeFilter(v as SizeFilter)}
+          options={[
+            { value: "all", label: "All" },
+            { value: "1", label: "1" },
+            { value: "2", label: "2" },
+            { value: "3+", label: "3+" },
+          ]}
+        />
+        <FilterSelect
+          label="Dietary Notes"
+          value={dietaryFilter}
+          onChange={(v) => setDietaryFilter(v as DietaryFilter)}
+          options={[
+            { value: "all", label: "All" },
+            { value: "has-notes", label: "Has Notes" },
+            { value: "no-notes", label: "No Notes" },
+          ]}
+        />
+        {(rsvpFilter !== "all" || sizeFilter !== "all" || dietaryFilter !== "all") && (
+          <button
+            type="button"
+            onClick={() => {
+              setRsvpFilter("all");
+              setSizeFilter("all");
+              setDietaryFilter("all");
+            }}
+            className="self-end text-xs text-deep-sage hover:text-pink transition-colors pb-2"
+          >
+            Clear filters
+          </button>
+        )}
       </div>
 
       {/* Results count */}
@@ -330,6 +423,35 @@ function getPartyDietarySummary(party: PartyRow): string {
     .filter((g) => g.dietary_notes)
     .map((g) => `${g.first_name}: ${g.dietary_notes}`)
     .join("; ");
+}
+
+function FilterSelect({
+  label,
+  value,
+  onChange,
+  options,
+}: {
+  label: string;
+  value: string;
+  onChange: (value: string) => void;
+  options: { value: string; label: string }[];
+}) {
+  return (
+    <div className="flex flex-col">
+      <label className="text-xs text-dark/50 mb-1">{label}</label>
+      <select
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="px-3 py-1.5 rounded-lg border border-sage/50 bg-white text-dark text-sm focus:outline-none focus:ring-2 focus:ring-pink focus:border-pink transition-colors"
+      >
+        {options.map((opt) => (
+          <option key={opt.value} value={opt.value}>
+            {opt.label}
+          </option>
+        ))}
+      </select>
+    </div>
+  );
 }
 
 /**

@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { createServiceClient } from "@/lib/supabase/server";
+import { RecentRsvpActivity } from "@/components/admin/recent-rsvp-activity";
 
 /**
  * Admin dashboard: summary cards and recent RSVP activity.
@@ -31,15 +33,14 @@ export default async function AdminDashboardPage() {
       .eq("status", "declined"),
     supabase.from("rsvps").select("id", { count: "exact", head: true }),
     // Recent RSVPs: join with guest and event info for the activity feed.
-    // We fetch the last 10 responses ordered by responded_at.
+    // Fetch all responses so the client component can paginate with "Show more".
     supabase
       .from("rsvps")
       .select(
         "id, status, responded_at, guest:guests(first_name, last_name), event:events(name)"
       )
       .not("responded_at", "is", null)
-      .order("responded_at", { ascending: false })
-      .limit(10),
+      .order("responded_at", { ascending: false }),
     // All events for per-event breakdown
     supabase.from("events").select("id, name, slug").order("sort_order"),
     // All RSVPs with event_id and status for per-event counts
@@ -83,6 +84,7 @@ export default async function AdminDashboardPage() {
     const eventRsvps = perEventRsvps.filter((r) => r.event_id === event.id);
     return {
       name: event.name,
+      slug: event.slug,
       attending: eventRsvps.filter((r) => r.status === "attending").length,
       declined: eventRsvps.filter((r) => r.status === "declined").length,
     };
@@ -115,7 +117,11 @@ export default async function AdminDashboardPage() {
       </h2>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-10">
         {eventBreakdown.map((evt) => (
-          <div key={evt.name} className="bg-white rounded-xl border border-sage/30 p-6">
+          <Link
+            key={evt.name}
+            href={`/admin/events/${evt.slug}`}
+            className="bg-white rounded-xl border border-sage/30 p-6 transition-colors hover:border-pink hover:bg-pink/5"
+          >
             <p className="text-sm font-medium text-dark mb-3">{evt.name}</p>
             <div className="flex items-baseline gap-6">
               <div>
@@ -127,7 +133,7 @@ export default async function AdminDashboardPage() {
                 <p className="text-xs text-dark/50">declined</p>
               </div>
             </div>
-          </div>
+          </Link>
         ))}
       </div>
 
@@ -136,60 +142,7 @@ export default async function AdminDashboardPage() {
         Recent RSVP Activity
       </h2>
 
-      {recentRsvps.length === 0 ? (
-        <p className="text-dark/60 text-sm">No RSVPs yet.</p>
-      ) : (
-        <div className="bg-white rounded-xl border border-sage/30 overflow-hidden">
-          <ul className="divide-y divide-sage/20">
-            {recentRsvps.map((rsvp) => {
-              // Supabase returns joined relations as objects.
-              // The guest and event fields come from the select join.
-              const guest = rsvp.guest as unknown as {
-                first_name: string;
-                last_name: string;
-              } | null;
-              const event = rsvp.event as unknown as {
-                name: string;
-              } | null;
-
-              const guestName = guest
-                ? `${guest.first_name} ${guest.last_name}`
-                : "Unknown guest";
-              const eventName = event?.name ?? "Unknown event";
-              const respondedAt = rsvp.responded_at
-                ? new Date(rsvp.responded_at).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })
-                : "";
-
-              return (
-                <li
-                  key={rsvp.id}
-                  className="px-6 py-4 flex items-center justify-between"
-                >
-                  <div>
-                    <p className="text-sm font-medium text-dark">
-                      {guestName}
-                    </p>
-                    <p className="text-xs text-dark/60">
-                      {eventName}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <StatusBadge status={rsvp.status} />
-                    <span className="text-xs text-dark/50">
-                      {respondedAt}
-                    </span>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
-      )}
+      <RecentRsvpActivity rsvps={recentRsvps} />
     </div>
   );
 }
@@ -223,19 +176,3 @@ function SummaryCard({
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const styles =
-    status === "attending"
-      ? "bg-green-100 text-green-800"
-      : status === "declined"
-        ? "bg-red-100 text-red-700"
-        : "bg-sage/30 text-deep-sage";
-
-  return (
-    <span
-      className={`inline-block px-2 py-0.5 text-xs font-medium rounded-full ${styles}`}
-    >
-      {status}
-    </span>
-  );
-}
