@@ -45,7 +45,8 @@ export default async function AdminDashboardLayout({
   return (
     <div className="flex min-h-screen bg-cream">
       <AdminSidebar email={user.email} />
-      <div className="flex-1 p-8 overflow-auto">{children}</div>
+      {/* p-4 + pt-16 on mobile to clear the fixed hamburger button; p-8 on sm+ */}
+      <div className="flex-1 p-4 pt-16 sm:p-8 sm:pt-8 overflow-auto">{children}</div>
     </div>
   );
 }
