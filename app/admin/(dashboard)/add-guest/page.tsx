@@ -848,11 +848,6 @@ function DeleteForm({
   }, [selectedPartyId]);
 
   function handleDeleteParty() {
-    if (!confirmDeleteParty) {
-      setConfirmDeleteParty(true);
-      return;
-    }
-
     setError("");
     setSuccess("");
     startTransition(async () => {
@@ -870,11 +865,6 @@ function DeleteForm({
   }
 
   function handleDeleteGuest(guestId: string) {
-    if (confirmDeleteGuest !== guestId) {
-      setConfirmDeleteGuest(guestId);
-      return;
-    }
-
     setError("");
     setSuccess("");
     startTransition(async () => {
@@ -938,25 +928,51 @@ function DeleteForm({
             </h2>
             <div className="space-y-2">
               {partyGuests.map((guest) => (
-                <div
-                  key={guest.id}
-                  className="flex items-center justify-between px-4 py-3 rounded-lg border border-sage/30"
-                >
-                  <span className="text-sm font-medium text-dark">
-                    {guest.first_name} {guest.last_name}
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => handleDeleteGuest(guest.id)}
-                    disabled={isPending}
-                    className={`text-sm font-medium px-3 py-1 rounded-md transition-colors disabled:opacity-50 ${
-                      confirmDeleteGuest === guest.id
-                        ? "bg-red-600 text-white hover:bg-red-700"
-                        : "text-red-600 hover:bg-red-50"
-                    }`}
-                  >
-                    {confirmDeleteGuest === guest.id ? "Confirm Remove" : "Remove"}
-                  </button>
+                <div key={guest.id}>
+                  <div className="flex items-center justify-between px-4 py-3 rounded-lg border border-sage/30">
+                    <span className="text-sm font-medium text-dark">
+                      {guest.first_name} {guest.last_name}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setConfirmDeleteGuest(
+                          confirmDeleteGuest === guest.id ? null : guest.id
+                        )
+                      }
+                      disabled={isPending}
+                      className="text-sm font-medium px-3 py-1 rounded-md text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                  {confirmDeleteGuest === guest.id && (
+                    <div className="mt-2 mx-2 p-4 rounded-lg bg-red-50 border border-red-200">
+                      <p className="text-sm font-medium text-red-700 mb-3">
+                        ⚠️ Are you sure you want to remove{" "}
+                        <strong>{guest.first_name} {guest.last_name}</strong> from this
+                        party? This will also delete their RSVPs and dietary
+                        restrictions. ⚠️
+                      </p>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteGuest(guest.id)}
+                          disabled={isPending}
+                          className="px-4 py-1.5 rounded-md bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
+                        >
+                          {isPending ? "Removing..." : "Yes, Remove"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setConfirmDeleteGuest(null)}
+                          className="px-4 py-1.5 rounded-md text-sm text-dark/60 hover:text-dark transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))}
               {partyGuests.length === 0 && (
@@ -973,30 +989,46 @@ function DeleteForm({
             <p className="text-sm text-dark/60 mb-4">
               This will permanently remove the party, all its guests, their RSVPs, and dietary restrictions.
             </p>
-            <button
-              type="button"
-              onClick={handleDeleteParty}
-              disabled={isPending}
-              className={`px-6 py-2 rounded-lg font-medium text-sm transition-colors disabled:opacity-50 ${
-                confirmDeleteParty
-                  ? "bg-red-600 text-white hover:bg-red-700"
-                  : "bg-red-50 text-red-600 border border-red-200 hover:bg-red-100"
-              }`}
-            >
-              {isPending
-                ? "Deleting..."
-                : confirmDeleteParty
-                  ? "Click Again to Confirm Delete"
-                  : "Delete Party"}
-            </button>
-            {confirmDeleteParty && (
+            {!confirmDeleteParty ? (
               <button
                 type="button"
-                onClick={() => setConfirmDeleteParty(false)}
-                className="ml-3 px-4 py-2 text-sm text-dark/60 hover:text-dark transition-colors"
+                onClick={() => setConfirmDeleteParty(true)}
+                disabled={isPending}
+                className="px-6 py-2 rounded-lg font-medium text-sm bg-red-50 text-red-600 border border-red-200 hover:bg-red-100 transition-colors disabled:opacity-50"
               >
-                Cancel
+                Delete Party
               </button>
+            ) : (
+              <div className="p-4 rounded-lg bg-red-50 border border-red-300">
+                <p className="text-sm font-medium text-red-700 mb-1">
+                  ⚠️ Are you sure you want to delete the entire party{" "}
+                  <strong>&quot;{parties.find((p) => p.id === selectedPartyId)?.invite_name}&quot;</strong>? ⚠️
+                </p>
+                <p className="text-xs text-red-600 mb-3">
+                  This will remove {partyGuests.length} guest{partyGuests.length !== 1 ? "s" : ""}
+                  {partyGuests.length > 0 && (
+                    <> ({partyGuests.map((g) => `${g.first_name} ${g.last_name}`).join(", ")})</>
+                  )}
+                  , all RSVPs, and dietary restrictions. This cannot be undone.
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    onClick={handleDeleteParty}
+                    disabled={isPending}
+                    className="px-4 py-1.5 rounded-md bg-red-600 text-white text-sm font-medium hover:bg-red-700 transition-colors disabled:opacity-50"
+                  >
+                    {isPending ? "Deleting..." : "Yes, Delete Everything"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDeleteParty(false)}
+                    className="px-4 py-1.5 rounded-md text-sm text-dark/60 hover:text-dark transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
             )}
           </div>
         </>
