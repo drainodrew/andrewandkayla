@@ -7,9 +7,15 @@ import {
   separateGuestToNewParty,
   listParties,
   listGuestsInParty,
+  listEvents,
+  getPartyEvents,
+  addPartyEvent,
+  removePartyEvent,
+  deleteGuest,
+  deleteParty,
 } from "@/lib/actions/add-guest";
 
-type Mode = "new-party" | "add-to-existing" | "separate";
+type Mode = "new-party" | "add-to-existing" | "separate" | "manage-events" | "delete";
 
 interface GuestRow {
   first_name: string;
@@ -28,6 +34,12 @@ interface GuestOption {
   last_name: string;
 }
 
+interface EventOption {
+  id: string;
+  name: string;
+  slug: string;
+}
+
 export default function AddGuestPage() {
   const [mode, setMode] = useState<Mode>("new-party");
   const [error, setError] = useState("");
@@ -39,7 +51,7 @@ export default function AddGuestPage() {
   const [partiesLoaded, setPartiesLoaded] = useState(false);
 
   useEffect(() => {
-    if ((mode === "add-to-existing" || mode === "separate") && !partiesLoaded) {
+    if ((mode === "add-to-existing" || mode === "separate" || mode === "manage-events" || mode === "delete") && !partiesLoaded) {
       listParties().then((res) => {
         setParties(res.parties);
         setPartiesLoaded(true);
@@ -63,6 +75,8 @@ export default function AddGuestPage() {
           { key: "new-party" as Mode, label: "New Party" },
           { key: "add-to-existing" as Mode, label: "Add to Existing" },
           { key: "separate" as Mode, label: "Separate Guest" },
+          { key: "manage-events" as Mode, label: "Manage Events" },
+          { key: "delete" as Mode, label: "Remove" },
         ].map((tab) => (
           <button
             key={tab.key}
@@ -113,6 +127,27 @@ export default function AddGuestPage() {
 
       {mode === "separate" && (
         <SeparateGuestForm
+          parties={parties}
+          isPending={isPending}
+          startTransition={startTransition}
+          setError={setError}
+          setSuccess={setSuccess}
+          reloadParties={() => setPartiesLoaded(false)}
+        />
+      )}
+
+      {mode === "manage-events" && (
+        <ManageEventsForm
+          parties={parties}
+          isPending={isPending}
+          startTransition={startTransition}
+          setError={setError}
+          setSuccess={setSuccess}
+        />
+      )}
+
+      {mode === "delete" && (
+        <DeleteForm
           parties={parties}
           isPending={isPending}
           startTransition={startTransition}
@@ -608,5 +643,364 @@ function SeparateGuestForm({
         {isPending ? "Moving..." : "Separate Guest to New Party"}
       </button>
     </form>
+  );
+}
+
+// ─── Manage Events Form ─────────────────────────────────────
+
+function ManageEventsForm({
+  parties,
+  isPending,
+  startTransition,
+  setError,
+  setSuccess,
+}: {
+  parties: PartyOption[];
+  isPending: boolean;
+  startTransition: (fn: () => Promise<void>) => void;
+  setError: (s: string) => void;
+  setSuccess: (s: string) => void;
+}) {
+  const [selectedPartyId, setSelectedPartyId] = useState("");
+  const [partySearch, setPartySearch] = useState("");
+  const [events, setEvents] = useState<EventOption[]>([]);
+  const [eventsLoaded, setEventsLoaded] = useState(false);
+  const [activeEventIds, setActiveEventIds] = useState<Set<string>>(new Set());
+  const [loadingEvents, setLoadingEvents] = useState(false);
+
+  const filteredParties = partySearch.trim()
+    ? parties.filter((p) =>
+        p.invite_name.toLowerCase().includes(partySearch.toLowerCase())
+      )
+    : parties;
+
+  // Load all events once
+  useEffect(() => {
+    if (!eventsLoaded) {
+      listEvents().then((res) => {
+        setEvents(res.events);
+        setEventsLoaded(true);
+      });
+    }
+  }, [eventsLoaded]);
+
+  // Load party's current events when selection changes
+  useEffect(() => {
+    if (selectedPartyId) {
+      setLoadingEvents(true);
+      getPartyEvents(selectedPartyId).then((res) => {
+        setActiveEventIds(new Set(res.eventIds));
+        setLoadingEvents(false);
+      });
+    } else {
+      setActiveEventIds(new Set());
+    }
+  }, [selectedPartyId]);
+
+  function handleToggle(eventId: string, eventName: string) {
+    const isCurrentlyActive = activeEventIds.has(eventId);
+    setError("");
+    setSuccess("");
+
+    startTransition(async () => {
+      if (isCurrentlyActive) {
+        const result = await removePartyEvent(selectedPartyId, eventId);
+        if (result.error) {
+          setError(result.error);
+        } else {
+          setActiveEventIds((prev) => {
+            const next = new Set(prev);
+            next.delete(eventId);
+            return next;
+          });
+          const party = parties.find((p) => p.id === selectedPartyId);
+          setSuccess(`Removed "${eventName}" from ${party?.invite_name}.`);
+        }
+      } else {
+        const result = await addPartyEvent(selectedPartyId, eventId);
+        if (result.error) {
+          setError(result.error);
+        } else {
+          setActiveEventIds((prev) => new Set(prev).add(eventId));
+          const party = parties.find((p) => p.id === selectedPartyId);
+          setSuccess(`Added "${eventName}" to ${party?.invite_name}.`);
+        }
+      }
+    });
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white rounded-xl border border-sage/30 p-6">
+        <h2 className="font-heading text-lg text-deep-sage mb-3">
+          Select Party
+        </h2>
+        <input
+          type="text"
+          placeholder="Search parties..."
+          value={partySearch}
+          onChange={(e) => setPartySearch(e.target.value)}
+          className="w-full px-3 py-2 rounded-lg border border-sage/50 bg-white text-dark text-sm placeholder:text-dark/40 focus:outline-none focus:ring-2 focus:ring-pink focus:border-pink transition-colors mb-3"
+        />
+        <select
+          value={selectedPartyId}
+          onChange={(e) => setSelectedPartyId(e.target.value)}
+          className="w-full px-3 py-2 rounded-lg border border-sage/50 bg-white text-dark text-sm focus:outline-none focus:ring-2 focus:ring-pink focus:border-pink transition-colors"
+          size={Math.min(8, filteredParties.length + 1)}
+        >
+          <option value="">Choose a party...</option>
+          {filteredParties.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.invite_name} ({p.party_size})
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {selectedPartyId && (
+        <div className="bg-white rounded-xl border border-sage/30 p-6">
+          <h2 className="font-heading text-lg text-deep-sage mb-4">
+            Event Invitations
+          </h2>
+          {loadingEvents ? (
+            <p className="text-sm text-dark/50">Loading events...</p>
+          ) : (
+            <div className="space-y-2">
+              {events.map((event) => {
+                const isActive = activeEventIds.has(event.id);
+                return (
+                  <label
+                    key={event.id}
+                    className={`flex items-center gap-3 px-4 py-3 rounded-lg border cursor-pointer transition-colors ${
+                      isActive
+                        ? "border-pink bg-pink/5"
+                        : "border-sage/30 hover:border-pink/50"
+                    } ${isPending ? "opacity-50 pointer-events-none" : ""}`}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={isActive}
+                      onChange={() => handleToggle(event.id, event.name)}
+                      disabled={isPending}
+                      className="accent-pink w-4 h-4"
+                    />
+                    <span className="text-sm font-medium text-dark">
+                      {event.name}
+                    </span>
+                    {isActive && (
+                      <span className="ml-auto text-xs text-deep-sage bg-sage/20 px-2 py-0.5 rounded-full">
+                        Invited
+                      </span>
+                    )}
+                  </label>
+                );
+              })}
+              <p className="text-xs text-dark/40 mt-3">
+                Note: The wedding day and Friday Festivities are universal (all parties are invited). Toggle Rehearsal Dinner here for parties that need it.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Delete / Remove Form ───────────────────────────────────
+
+function DeleteForm({
+  parties,
+  isPending,
+  startTransition,
+  setError,
+  setSuccess,
+  reloadParties,
+}: {
+  parties: PartyOption[];
+  isPending: boolean;
+  startTransition: (fn: () => Promise<void>) => void;
+  setError: (s: string) => void;
+  setSuccess: (s: string) => void;
+  reloadParties: () => void;
+}) {
+  const [selectedPartyId, setSelectedPartyId] = useState("");
+  const [partyGuests, setPartyGuests] = useState<GuestOption[]>([]);
+  const [partySearch, setPartySearch] = useState("");
+  const [confirmDeleteParty, setConfirmDeleteParty] = useState(false);
+  const [confirmDeleteGuest, setConfirmDeleteGuest] = useState<string | null>(null);
+
+  const filteredParties = partySearch.trim()
+    ? parties.filter((p) =>
+        p.invite_name.toLowerCase().includes(partySearch.toLowerCase())
+      )
+    : parties;
+
+  useEffect(() => {
+    if (selectedPartyId) {
+      listGuestsInParty(selectedPartyId).then((res) => {
+        setPartyGuests(res.guests);
+      });
+      setConfirmDeleteParty(false);
+      setConfirmDeleteGuest(null);
+    } else {
+      setPartyGuests([]);
+    }
+  }, [selectedPartyId]);
+
+  function handleDeleteParty() {
+    if (!confirmDeleteParty) {
+      setConfirmDeleteParty(true);
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+    startTransition(async () => {
+      const result = await deleteParty(selectedPartyId);
+      if (result.error) {
+        setError(result.error);
+      } else {
+        setSuccess(`Deleted party "${result.partyName}" and all its guests.`);
+        setSelectedPartyId("");
+        setPartyGuests([]);
+        setConfirmDeleteParty(false);
+        reloadParties();
+      }
+    });
+  }
+
+  function handleDeleteGuest(guestId: string) {
+    if (confirmDeleteGuest !== guestId) {
+      setConfirmDeleteGuest(guestId);
+      return;
+    }
+
+    setError("");
+    setSuccess("");
+    startTransition(async () => {
+      const result = await deleteGuest(guestId);
+      if (result.error) {
+        setError(result.error);
+      } else {
+        if (result.partyDeleted) {
+          setSuccess(`Deleted ${result.guestName}. Party was empty and has been removed.`);
+          setSelectedPartyId("");
+          setPartyGuests([]);
+          reloadParties();
+        } else {
+          setSuccess(`Deleted ${result.guestName}.`);
+          setPartyGuests((prev) => prev.filter((g) => g.id !== guestId));
+          reloadParties();
+        }
+        setConfirmDeleteGuest(null);
+      }
+    });
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white rounded-xl border border-sage/30 p-6">
+        <h2 className="font-heading text-lg text-deep-sage mb-3">
+          Select Party
+        </h2>
+        <input
+          type="text"
+          placeholder="Search parties..."
+          value={partySearch}
+          onChange={(e) => setPartySearch(e.target.value)}
+          className="w-full px-3 py-2 rounded-lg border border-sage/50 bg-white text-dark text-sm placeholder:text-dark/40 focus:outline-none focus:ring-2 focus:ring-pink focus:border-pink transition-colors mb-3"
+        />
+        <select
+          value={selectedPartyId}
+          onChange={(e) => {
+            setSelectedPartyId(e.target.value);
+            setConfirmDeleteParty(false);
+            setConfirmDeleteGuest(null);
+          }}
+          className="w-full px-3 py-2 rounded-lg border border-sage/50 bg-white text-dark text-sm focus:outline-none focus:ring-2 focus:ring-pink focus:border-pink transition-colors"
+          size={Math.min(8, filteredParties.length + 1)}
+        >
+          <option value="">Choose a party...</option>
+          {filteredParties.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.invite_name} ({p.party_size})
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {selectedPartyId && (
+        <>
+          {/* Individual guest removal */}
+          <div className="bg-white rounded-xl border border-sage/30 p-6">
+            <h2 className="font-heading text-lg text-deep-sage mb-4">
+              Guests in Party
+            </h2>
+            <div className="space-y-2">
+              {partyGuests.map((guest) => (
+                <div
+                  key={guest.id}
+                  className="flex items-center justify-between px-4 py-3 rounded-lg border border-sage/30"
+                >
+                  <span className="text-sm font-medium text-dark">
+                    {guest.first_name} {guest.last_name}
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteGuest(guest.id)}
+                    disabled={isPending}
+                    className={`text-sm font-medium px-3 py-1 rounded-md transition-colors disabled:opacity-50 ${
+                      confirmDeleteGuest === guest.id
+                        ? "bg-red-600 text-white hover:bg-red-700"
+                        : "text-red-600 hover:bg-red-50"
+                    }`}
+                  >
+                    {confirmDeleteGuest === guest.id ? "Confirm Remove" : "Remove"}
+                  </button>
+                </div>
+              ))}
+              {partyGuests.length === 0 && (
+                <p className="text-sm text-dark/50">No guests found.</p>
+              )}
+            </div>
+          </div>
+
+          {/* Delete entire party */}
+          <div className="bg-white rounded-xl border border-red-200 p-6">
+            <h2 className="font-heading text-lg text-red-700 mb-2">
+              Delete Entire Party
+            </h2>
+            <p className="text-sm text-dark/60 mb-4">
+              This will permanently remove the party, all its guests, their RSVPs, and dietary restrictions.
+            </p>
+            <button
+              type="button"
+              onClick={handleDeleteParty}
+              disabled={isPending}
+              className={`px-6 py-2 rounded-lg font-medium text-sm transition-colors disabled:opacity-50 ${
+                confirmDeleteParty
+                  ? "bg-red-600 text-white hover:bg-red-700"
+                  : "bg-red-50 text-red-600 border border-red-200 hover:bg-red-100"
+              }`}
+            >
+              {isPending
+                ? "Deleting..."
+                : confirmDeleteParty
+                  ? "Click Again to Confirm Delete"
+                  : "Delete Party"}
+            </button>
+            {confirmDeleteParty && (
+              <button
+                type="button"
+                onClick={() => setConfirmDeleteParty(false)}
+                className="ml-3 px-4 py-2 text-sm text-dark/60 hover:text-dark transition-colors"
+              >
+                Cancel
+              </button>
+            )}
+          </div>
+        </>
+      )}
+    </div>
   );
 }

@@ -87,13 +87,15 @@ export function GuestsTable({ parties }: { parties: PartyRow[] }) {
   }
 
   /**
-   * Generate and download a CSV of all parties and guests.
+   * Generate and download a CSV of the currently filtered view.
    * Each row is one guest, with party info repeated.
    */
   function exportCsv() {
     const headers = [
+      "Party ID",
       "Party Name",
       "Party Size",
+      "Guest ID",
       "Guest First Name",
       "Guest Last Name",
       "Is Placeholder",
@@ -101,13 +103,20 @@ export function GuestsTable({ parties }: { parties: PartyRow[] }) {
       "Dietary Notes",
       "Party Email",
       "Party Phone",
+      "Address Line 1",
+      "Address Line 2",
+      "City",
+      "State",
+      "Zip Code",
       "Party Notes",
     ];
 
-    const rows = parties.flatMap((p) =>
+    const rows = filtered.flatMap((p) =>
       p.guests.map((g) => [
+        p.id,
         csvEscape(p.invite_name),
         String(p.party_size),
+        g.id,
         csvEscape(g.first_name),
         csvEscape(g.last_name),
         g.is_placeholder ? "Yes" : "No",
@@ -118,6 +127,11 @@ export function GuestsTable({ parties }: { parties: PartyRow[] }) {
         csvEscape(g.dietary_notes ?? ""),
         csvEscape(p.email ?? ""),
         csvEscape(p.phone ?? ""),
+        csvEscape(p.address_line_1 ?? ""),
+        csvEscape(p.address_line_2 ?? ""),
+        csvEscape(p.city ?? ""),
+        csvEscape(p.state ?? ""),
+        csvEscape(p.zip_code ?? ""),
         csvEscape(p.notes ?? ""),
       ])
     );

@@ -23,6 +23,11 @@ export type PartyRow = {
   party_size: number;
   email: string | null;
   phone: string | null;
+  address_line_1: string | null;
+  address_line_2: string | null;
+  city: string | null;
+  state: string | null;
+  zip_code: string | null;
   notes: string | null;
   guests: GuestRow[];
 };
@@ -41,7 +46,7 @@ export default async function AdminGuestsPage() {
     await Promise.all([
       supabase
         .from("parties")
-        .select("id, invite_name, party_size, email, phone, notes")
+        .select("id, invite_name, party_size, email, phone, address_line_1, address_line_2, city, state, zip_code, notes")
         .order("invite_name"),
       supabase
         .from("guests")
@@ -87,6 +92,11 @@ export default async function AdminGuestsPage() {
     party_size: p.party_size,
     email: p.email,
     phone: p.phone,
+    address_line_1: p.address_line_1,
+    address_line_2: p.address_line_2,
+    city: p.city,
+    state: p.state,
+    zip_code: p.zip_code,
     notes: p.notes,
     guests: (guestsByPartyId.get(p.id) ?? []).map((g) => ({
       id: g.id,

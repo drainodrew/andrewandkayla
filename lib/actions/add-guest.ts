@@ -238,6 +238,195 @@ export async function listParties() {
 }
 
 /**
+ * Fetch all events.
+ */
+export async function listEvents() {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase
+    .from("events")
+    .select("id, name, slug")
+    .order("sort_order");
+
+  if (error) return { error: error.message, events: [] };
+  return { events: data ?? [] };
+}
+
+/**
+ * Fetch which events a party is invited to (from party_events).
+ */
+export async function getPartyEvents(partyId: string) {
+  const supabase = createServiceClient();
+  const { data, error } = await supabase
+    .from("party_events")
+    .select("event_id")
+    .eq("party_id", partyId);
+
+  if (error) return { error: error.message, eventIds: [] };
+  return { eventIds: (data ?? []).map((pe) => pe.event_id) };
+}
+
+/**
+ * Add an event invitation for a party.
+ */
+export async function addPartyEvent(partyId: string, eventId: string) {
+  const supabase = createServiceClient();
+
+  // Check if already exists
+  const { data: existing } = await supabase
+    .from("party_events")
+    .select("id")
+    .eq("party_id", partyId)
+    .eq("event_id", eventId)
+    .maybeSingle();
+
+  if (existing) {
+    return { error: "Party is already invited to this event." };
+  }
+
+  const { error } = await supabase.from("party_events").insert({
+    party_id: partyId,
+    event_id: eventId,
+  });
+
+  if (error) return { error: "Failed to add event: " + error.message };
+  return { success: true };
+}
+
+/**
+ * Remove an event invitation from a party.
+ * Also deletes any RSVPs for guests in that party for that event.
+ */
+export async function removePartyEvent(partyId: string, eventId: string) {
+  const supabase = createServiceClient();
+
+  // Get guest IDs in this party so we can clean up RSVPs
+  const { data: guests } = await supabase
+    .from("guests")
+    .select("id")
+    .eq("party_id", partyId);
+
+  if (guests && guests.length > 0) {
+    const guestIds = guests.map((g) => g.id);
+    await supabase
+      .from("rsvps")
+      .delete()
+      .in("guest_id", guestIds)
+      .eq("event_id", eventId);
+  }
+
+  const { error } = await supabase
+    .from("party_events")
+    .delete()
+    .eq("party_id", partyId)
+    .eq("event_id", eventId);
+
+  if (error) return { error: "Failed to remove event: " + error.message };
+  return { success: true };
+}
+
+/**
+ * Delete a guest from a party. Cleans up RSVPs and dietary restrictions.
+ * Decrements party_size. If this was the last guest, deletes the party too.
+ */
+export async function deleteGuest(guestId: string) {
+  const supabase = createServiceClient();
+
+  const { data: guest, error: guestErr } = await supabase
+    .from("guests")
+    .select("id, first_name, last_name, party_id")
+    .eq("id", guestId)
+    .single();
+
+  if (guestErr || !guest) {
+    return { error: "Guest not found." };
+  }
+
+  // Delete RSVPs
+  await supabase.from("rsvps").delete().eq("guest_id", guestId);
+  // Delete dietary restrictions
+  await supabase.from("dietary_restrictions").delete().eq("guest_id", guestId);
+  // Delete guest
+  const { error: delErr } = await supabase.from("guests").delete().eq("id", guestId);
+  if (delErr) {
+    return { error: "Failed to delete guest: " + delErr.message };
+  }
+
+  // Check remaining guests in party
+  const { data: remaining } = await supabase
+    .from("guests")
+    .select("id")
+    .eq("party_id", guest.party_id);
+
+  if (!remaining || remaining.length === 0) {
+    // Last guest, delete the whole party
+    await supabase.from("party_events").delete().eq("party_id", guest.party_id);
+    await supabase.from("parties").delete().eq("id", guest.party_id);
+    return {
+      success: true,
+      guestName: `${guest.first_name} ${guest.last_name}`,
+      partyDeleted: true,
+    };
+  } else {
+    // Update party_size
+    await supabase
+      .from("parties")
+      .update({ party_size: remaining.length })
+      .eq("id", guest.party_id);
+    return {
+      success: true,
+      guestName: `${guest.first_name} ${guest.last_name}`,
+      partyDeleted: false,
+    };
+  }
+}
+
+/**
+ * Delete an entire party and all its guests, RSVPs, dietary restrictions,
+ * and party_events.
+ */
+export async function deleteParty(partyId: string) {
+  const supabase = createServiceClient();
+
+  const { data: party, error: partyErr } = await supabase
+    .from("parties")
+    .select("id, invite_name")
+    .eq("id", partyId)
+    .single();
+
+  if (partyErr || !party) {
+    return { error: "Party not found." };
+  }
+
+  // Get all guest IDs
+  const { data: guests } = await supabase
+    .from("guests")
+    .select("id")
+    .eq("party_id", partyId);
+
+  if (guests && guests.length > 0) {
+    const guestIds = guests.map((g) => g.id);
+    await supabase.from("rsvps").delete().in("guest_id", guestIds);
+    await supabase.from("dietary_restrictions").delete().in("guest_id", guestIds);
+    await supabase.from("guests").delete().eq("party_id", partyId);
+  }
+
+  // Delete registry claims
+  await supabase
+    .from("registry_items")
+    .update({ status: "available", claimed_by_party_id: null, claimed_at: null, purchased_at: null })
+    .eq("claimed_by_party_id", partyId);
+
+  await supabase.from("party_events").delete().eq("party_id", partyId);
+  const { error: delErr } = await supabase.from("parties").delete().eq("id", partyId);
+
+  if (delErr) {
+    return { error: "Failed to delete party: " + delErr.message };
+  }
+
+  return { success: true, partyName: party.invite_name };
+}
+
+/**
  * Fetch guests in a specific party.
  */
 export async function listGuestsInParty(partyId: string) {
