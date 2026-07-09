@@ -220,6 +220,8 @@ export function GuestsTable({ parties }: { parties: PartyRow[] }) {
       {/* Results count */}
       <p className="text-sm text-dark/60 mb-4">
         Showing {filtered.length} of {parties.length} parties
+        {" · "}
+        {filtered.reduce((sum, p) => sum + p.guests.length, 0)} guests
       </p>
 
       {/* Table */}
