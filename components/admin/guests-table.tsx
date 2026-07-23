@@ -39,19 +39,24 @@ export function GuestsTable({ parties, events }: { parties: PartyRow[]; events: 
         if (!matchesText) return false;
       }
 
-      // RSVP status filter
+      // RSVP status filter (scoped to selected event when event filter is active)
       if (rsvpFilter !== "all") {
-        const hasAnyRsvp = p.guests.some((g) => g.rsvps.length > 0);
+        const relevantRsvps = (g: typeof p.guests[number]) =>
+          eventFilter !== "all"
+            ? g.rsvps.filter((r) => r.event_name === eventFilter)
+            : g.rsvps;
+
         if (rsvpFilter === "no-response") {
-          if (hasAnyRsvp) return false;
+          const hasRelevantRsvp = p.guests.some((g) => relevantRsvps(g).length > 0);
+          if (hasRelevantRsvp) return false;
         } else if (rsvpFilter === "attending") {
           const anyAttending = p.guests.some((g) =>
-            g.rsvps.some((r) => r.status === "attending")
+            relevantRsvps(g).some((r) => r.status === "attending")
           );
           if (!anyAttending) return false;
         } else if (rsvpFilter === "declined") {
           const anyDeclined = p.guests.some((g) =>
-            g.rsvps.some((r) => r.status === "declined")
+            relevantRsvps(g).some((r) => r.status === "declined")
           );
           if (!anyDeclined) return false;
         }
