@@ -42,6 +42,108 @@ interface EventOption {
   slug: string;
 }
 
+// ─── Shared Party Search Picker ─────────────────────────────
+// Autocomplete-style picker matching the RSVP search UI
+
+function PartySearchPicker({
+  parties,
+  selectedPartyId,
+  onSelect,
+  label,
+  filterFn,
+}: {
+  parties: PartyOption[];
+  selectedPartyId: string;
+  onSelect: (partyId: string) => void;
+  label?: string;
+  filterFn?: (p: PartyOption) => boolean;
+}) {
+  const [query, setQuery] = useState("");
+  const selectedParty = parties.find((p) => p.id === selectedPartyId);
+
+  const candidates = (filterFn ? parties.filter(filterFn) : parties).filter(
+    (p) => {
+      if (!query.trim()) return true;
+      return p.invite_name.toLowerCase().includes(query.toLowerCase());
+    }
+  );
+
+  // Show results when typing or when no party is selected
+  const showResults = !selectedPartyId && query.length > 0;
+  const showAll = !selectedPartyId && query.length === 0;
+
+  return (
+    <div className="bg-white rounded-xl border border-sage/30 p-6">
+      <h2 className="font-heading text-lg text-deep-sage mb-3">
+        {label ?? "Select Party"}
+      </h2>
+
+      {selectedParty ? (
+        <div className="flex items-center justify-between rounded-lg border border-pink bg-pink/5 px-4 py-3">
+          <div>
+            <span className="font-medium">{selectedParty.invite_name}</span>
+            <span className="ml-2 text-sm text-dark/50">
+              (party of {selectedParty.party_size})
+            </span>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              onSelect("");
+              setQuery("");
+            }}
+            className="text-sm text-dark/50 hover:text-deep-sage transition-colors"
+          >
+            Change
+          </button>
+        </div>
+      ) : (
+        <>
+          <input
+            type="text"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder="Type a name to search..."
+            autoComplete="off"
+            className="w-full rounded-lg border border-sage/50 bg-white px-4 py-3 text-dark placeholder:text-dark/40 focus:outline-none focus:ring-2 focus:ring-pink focus:border-transparent"
+          />
+
+          {query.length > 0 && candidates.length === 0 && (
+            <p className="mt-3 text-sm text-dark/60">No parties match your search.</p>
+          )}
+
+          {(showResults || showAll) && candidates.length > 0 && (
+            <ul className="mt-3 space-y-2 max-h-64 overflow-y-auto">
+              {(showAll ? candidates.slice(0, 8) : candidates).map((p) => (
+                <li key={p.id}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onSelect(p.id);
+                      setQuery("");
+                    }}
+                    className="w-full text-left rounded-lg border border-sage/30 bg-white px-4 py-3 transition-colors hover:border-pink hover:bg-pink/5 focus:outline-none focus:ring-2 focus:ring-pink"
+                  >
+                    <span className="font-medium">{p.invite_name}</span>
+                    <span className="ml-2 text-sm text-dark/50">
+                      (party of {p.party_size})
+                    </span>
+                  </button>
+                </li>
+              ))}
+              {showAll && candidates.length > 8 && (
+                <p className="text-xs text-dark/40 px-1">
+                  Type to search {candidates.length} parties...
+                </p>
+              )}
+            </ul>
+          )}
+        </>
+      )}
+    </div>
+  );
+}
+
 export default function AddGuestPage() {
   const [mode, setMode] = useState<Mode>("new-party");
   const [error, setError] = useState("");
@@ -397,13 +499,6 @@ function AddToExistingForm({
   const [selectedPartyId, setSelectedPartyId] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [partySearch, setPartySearch] = useState("");
-
-  const filteredParties = partySearch.trim()
-    ? parties.filter((p) =>
-        p.invite_name.toLowerCase().includes(partySearch.toLowerCase())
-      )
-    : parties;
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -437,31 +532,11 @@ function AddToExistingForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="bg-white rounded-xl border border-sage/30 p-6">
-        <h2 className="font-heading text-lg text-deep-sage mb-3">
-          Select Party
-        </h2>
-        <input
-          type="text"
-          placeholder="Search parties..."
-          value={partySearch}
-          onChange={(e) => setPartySearch(e.target.value)}
-          className="w-full px-3 py-2 rounded-lg border border-sage/50 bg-white text-dark text-sm placeholder:text-dark/40 focus:outline-none focus:ring-2 focus:ring-pink focus:border-pink transition-colors mb-3"
-        />
-        <select
-          value={selectedPartyId}
-          onChange={(e) => setSelectedPartyId(e.target.value)}
-          className="w-full px-3 py-2 rounded-lg border border-sage/50 bg-white text-dark text-sm focus:outline-none focus:ring-2 focus:ring-pink focus:border-pink transition-colors"
-          size={Math.min(8, filteredParties.length + 1)}
-        >
-          <option value="">Choose a party...</option>
-          {filteredParties.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.invite_name} ({p.party_size})
-            </option>
-          ))}
-        </select>
-      </div>
+      <PartySearchPicker
+        parties={parties}
+        selectedPartyId={selectedPartyId}
+        onSelect={setSelectedPartyId}
+      />
 
       <div className="bg-white rounded-xl border border-sage/30 p-6">
         <h2 className="font-heading text-lg text-deep-sage mb-3">New Guest</h2>
@@ -513,16 +588,6 @@ function SeparateGuestForm({
   const [partyGuests, setPartyGuests] = useState<GuestOption[]>([]);
   const [selectedGuestId, setSelectedGuestId] = useState("");
   const [newPartyName, setNewPartyName] = useState("");
-  const [partySearch, setPartySearch] = useState("");
-
-  const filteredParties = partySearch.trim()
-    ? parties.filter((p) =>
-        p.invite_name.toLowerCase().includes(partySearch.toLowerCase())
-      )
-    : parties;
-
-  // Only show parties with 2+ guests (can't separate from a party of 1)
-  const separableParties = filteredParties.filter((p) => p.party_size >= 2);
 
   useEffect(() => {
     if (selectedPartyId) {
@@ -575,31 +640,12 @@ function SeparateGuestForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      <div className="bg-white rounded-xl border border-sage/30 p-6">
-        <h2 className="font-heading text-lg text-deep-sage mb-3">
-          Select Party
-        </h2>
-        <input
-          type="text"
-          placeholder="Search parties..."
-          value={partySearch}
-          onChange={(e) => setPartySearch(e.target.value)}
-          className="w-full px-3 py-2 rounded-lg border border-sage/50 bg-white text-dark text-sm placeholder:text-dark/40 focus:outline-none focus:ring-2 focus:ring-pink focus:border-pink transition-colors mb-3"
-        />
-        <select
-          value={selectedPartyId}
-          onChange={(e) => setSelectedPartyId(e.target.value)}
-          className="w-full px-3 py-2 rounded-lg border border-sage/50 bg-white text-dark text-sm focus:outline-none focus:ring-2 focus:ring-pink focus:border-pink transition-colors"
-          size={Math.min(8, separableParties.length + 1)}
-        >
-          <option value="">Choose a party...</option>
-          {separableParties.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.invite_name} ({p.party_size})
-            </option>
-          ))}
-        </select>
-      </div>
+      <PartySearchPicker
+        parties={parties}
+        selectedPartyId={selectedPartyId}
+        onSelect={setSelectedPartyId}
+        filterFn={(p) => p.party_size >= 2}
+      />
 
       {partyGuests.length > 0 && (
         <div className="bg-white rounded-xl border border-sage/30 p-6">
@@ -675,17 +721,10 @@ function ManageEventsForm({
   setSuccess: (s: string) => void;
 }) {
   const [selectedPartyId, setSelectedPartyId] = useState("");
-  const [partySearch, setPartySearch] = useState("");
   const [events, setEvents] = useState<EventOption[]>([]);
   const [eventsLoaded, setEventsLoaded] = useState(false);
   const [activeEventIds, setActiveEventIds] = useState<Set<string>>(new Set());
   const [loadingEvents, setLoadingEvents] = useState(false);
-
-  const filteredParties = partySearch.trim()
-    ? parties.filter((p) =>
-        p.invite_name.toLowerCase().includes(partySearch.toLowerCase())
-      )
-    : parties;
 
   // Load all events once
   useEffect(() => {
@@ -744,31 +783,11 @@ function ManageEventsForm({
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-xl border border-sage/30 p-6">
-        <h2 className="font-heading text-lg text-deep-sage mb-3">
-          Select Party
-        </h2>
-        <input
-          type="text"
-          placeholder="Search parties..."
-          value={partySearch}
-          onChange={(e) => setPartySearch(e.target.value)}
-          className="w-full px-3 py-2 rounded-lg border border-sage/50 bg-white text-dark text-sm placeholder:text-dark/40 focus:outline-none focus:ring-2 focus:ring-pink focus:border-pink transition-colors mb-3"
-        />
-        <select
-          value={selectedPartyId}
-          onChange={(e) => setSelectedPartyId(e.target.value)}
-          className="w-full px-3 py-2 rounded-lg border border-sage/50 bg-white text-dark text-sm focus:outline-none focus:ring-2 focus:ring-pink focus:border-pink transition-colors"
-          size={Math.min(8, filteredParties.length + 1)}
-        >
-          <option value="">Choose a party...</option>
-          {filteredParties.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.invite_name} ({p.party_size})
-            </option>
-          ))}
-        </select>
-      </div>
+      <PartySearchPicker
+        parties={parties}
+        selectedPartyId={selectedPartyId}
+        onSelect={setSelectedPartyId}
+      />
 
       {selectedPartyId && (
         <div className="bg-white rounded-xl border border-sage/30 p-6">
@@ -845,15 +864,8 @@ function ManageRsvpForm({
   setSuccess: (s: string) => void;
 }) {
   const [selectedPartyId, setSelectedPartyId] = useState("");
-  const [partySearch, setPartySearch] = useState("");
   const [guestRsvps, setGuestRsvps] = useState<GuestRsvpData[]>([]);
   const [loading, setLoading] = useState(false);
-
-  const filteredParties = partySearch.trim()
-    ? parties.filter((p) =>
-        p.invite_name.toLowerCase().includes(partySearch.toLowerCase())
-      )
-    : parties;
 
   useEffect(() => {
     if (selectedPartyId) {
@@ -905,31 +917,11 @@ function ManageRsvpForm({
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-xl border border-sage/30 p-6">
-        <h2 className="font-heading text-lg text-deep-sage mb-3">
-          Select Party
-        </h2>
-        <input
-          type="text"
-          placeholder="Search parties..."
-          value={partySearch}
-          onChange={(e) => setPartySearch(e.target.value)}
-          className="w-full px-3 py-2 rounded-lg border border-sage/50 bg-white text-dark text-sm placeholder:text-dark/40 focus:outline-none focus:ring-2 focus:ring-pink focus:border-pink transition-colors mb-3"
-        />
-        <select
-          value={selectedPartyId}
-          onChange={(e) => setSelectedPartyId(e.target.value)}
-          className="w-full px-3 py-2 rounded-lg border border-sage/50 bg-white text-dark text-sm focus:outline-none focus:ring-2 focus:ring-pink focus:border-pink transition-colors"
-          size={Math.min(8, filteredParties.length + 1)}
-        >
-          <option value="">Choose a party...</option>
-          {filteredParties.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.invite_name} ({p.party_size})
-            </option>
-          ))}
-        </select>
-      </div>
+      <PartySearchPicker
+        parties={parties}
+        selectedPartyId={selectedPartyId}
+        onSelect={setSelectedPartyId}
+      />
 
       {selectedPartyId && (
         <div className="bg-white rounded-xl border border-sage/30 p-6">
@@ -1023,15 +1015,8 @@ function DeleteForm({
 }) {
   const [selectedPartyId, setSelectedPartyId] = useState("");
   const [partyGuests, setPartyGuests] = useState<GuestOption[]>([]);
-  const [partySearch, setPartySearch] = useState("");
   const [confirmDeleteParty, setConfirmDeleteParty] = useState(false);
   const [confirmDeleteGuest, setConfirmDeleteGuest] = useState<string | null>(null);
-
-  const filteredParties = partySearch.trim()
-    ? parties.filter((p) =>
-        p.invite_name.toLowerCase().includes(partySearch.toLowerCase())
-      )
-    : parties;
 
   useEffect(() => {
     if (selectedPartyId) {
@@ -1087,35 +1072,15 @@ function DeleteForm({
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-xl border border-sage/30 p-6">
-        <h2 className="font-heading text-lg text-deep-sage mb-3">
-          Select Party
-        </h2>
-        <input
-          type="text"
-          placeholder="Search parties..."
-          value={partySearch}
-          onChange={(e) => setPartySearch(e.target.value)}
-          className="w-full px-3 py-2 rounded-lg border border-sage/50 bg-white text-dark text-sm placeholder:text-dark/40 focus:outline-none focus:ring-2 focus:ring-pink focus:border-pink transition-colors mb-3"
-        />
-        <select
-          value={selectedPartyId}
-          onChange={(e) => {
-            setSelectedPartyId(e.target.value);
-            setConfirmDeleteParty(false);
-            setConfirmDeleteGuest(null);
-          }}
-          className="w-full px-3 py-2 rounded-lg border border-sage/50 bg-white text-dark text-sm focus:outline-none focus:ring-2 focus:ring-pink focus:border-pink transition-colors"
-          size={Math.min(8, filteredParties.length + 1)}
-        >
-          <option value="">Choose a party...</option>
-          {filteredParties.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.invite_name} ({p.party_size})
-            </option>
-          ))}
-        </select>
-      </div>
+      <PartySearchPicker
+        parties={parties}
+        selectedPartyId={selectedPartyId}
+        onSelect={(id) => {
+          setSelectedPartyId(id);
+          setConfirmDeleteParty(false);
+          setConfirmDeleteGuest(null);
+        }}
+      />
 
       {selectedPartyId && (
         <>

@@ -122,29 +122,44 @@ export function GuestsTable({ parties, events }: { parties: PartyRow[]; events: 
       "Party Notes",
     ];
 
+    // When RSVP filter is active, only include guests who individually match
     const rows = filtered.flatMap((p) =>
-      p.guests.map((g) => [
-        p.id,
-        csvEscape(p.invite_name),
-        String(p.party_size),
-        g.id,
-        csvEscape(g.first_name),
-        csvEscape(g.last_name),
-        g.is_placeholder ? "Yes" : "No",
-        csvEscape(
-          g.rsvps.map((r) => `${r.event_name}: ${r.status}`).join("; ") ||
-            "No response"
-        ),
-        csvEscape(g.dietary_notes ?? ""),
-        csvEscape(p.email ?? ""),
-        csvEscape(p.phone ?? ""),
-        csvEscape(p.address_line_1 ?? ""),
-        csvEscape(p.address_line_2 ?? ""),
-        csvEscape(p.city ?? ""),
-        csvEscape(p.state ?? ""),
-        csvEscape(p.zip_code ?? ""),
-        csvEscape(p.notes ?? ""),
-      ])
+      p.guests
+        .filter((g) => {
+          if (rsvpFilter === "all") return true;
+          const rsvps =
+            eventFilter !== "all"
+              ? g.rsvps.filter((r) => r.event_name === eventFilter)
+              : g.rsvps;
+          if (rsvpFilter === "no-response") return rsvps.length === 0;
+          if (rsvpFilter === "attending")
+            return rsvps.some((r) => r.status === "attending");
+          if (rsvpFilter === "declined")
+            return rsvps.some((r) => r.status === "declined");
+          return true;
+        })
+        .map((g) => [
+          p.id,
+          csvEscape(p.invite_name),
+          String(p.party_size),
+          g.id,
+          csvEscape(g.first_name),
+          csvEscape(g.last_name),
+          g.is_placeholder ? "Yes" : "No",
+          csvEscape(
+            g.rsvps.map((r) => `${r.event_name}: ${r.status}`).join("; ") ||
+              "No response"
+          ),
+          csvEscape(g.dietary_notes ?? ""),
+          csvEscape(p.email ?? ""),
+          csvEscape(p.phone ?? ""),
+          csvEscape(p.address_line_1 ?? ""),
+          csvEscape(p.address_line_2 ?? ""),
+          csvEscape(p.city ?? ""),
+          csvEscape(p.state ?? ""),
+          csvEscape(p.zip_code ?? ""),
+          csvEscape(p.notes ?? ""),
+        ])
     );
 
     const csv = [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
@@ -182,6 +197,15 @@ export function GuestsTable({ parties, events }: { parties: PartyRow[]; events: 
       {/* Column filters */}
       <div className="flex flex-wrap gap-3 mb-4">
         <FilterSelect
+          label="Event"
+          value={eventFilter}
+          onChange={(v) => setEventFilter(v)}
+          options={[
+            { value: "all", label: "All" },
+            ...events.map((e) => ({ value: e.name, label: e.name })),
+          ]}
+        />
+        <FilterSelect
           label="RSVP Status"
           value={rsvpFilter}
           onChange={(v) => setRsvpFilter(v as RsvpFilter)}
@@ -213,15 +237,6 @@ export function GuestsTable({ parties, events }: { parties: PartyRow[]; events: 
             { value: "no-notes", label: "No Notes" },
           ]}
         />
-        <FilterSelect
-          label="Event"
-          value={eventFilter}
-          onChange={(v) => setEventFilter(v)}
-          options={[
-            { value: "all", label: "All" },
-            ...events.map((e) => ({ value: e.name, label: e.name })),
-          ]}
-        />
         {(rsvpFilter !== "all" || sizeFilter !== "all" || dietaryFilter !== "all" || eventFilter !== "all") && (
           <button
             type="button"
@@ -242,7 +257,18 @@ export function GuestsTable({ parties, events }: { parties: PartyRow[]; events: 
       <p className="text-sm text-dark/60 mb-4">
         Showing {filtered.length} of {parties.length} parties
         {" · "}
-        {filtered.reduce((sum, p) => sum + p.guests.length, 0)} guests
+        {filtered.reduce((sum, p) => {
+          if (rsvpFilter === "all") return sum + p.guests.length;
+          return sum + p.guests.filter((g) => {
+            const rsvps = eventFilter !== "all"
+              ? g.rsvps.filter((r) => r.event_name === eventFilter)
+              : g.rsvps;
+            if (rsvpFilter === "no-response") return rsvps.length === 0;
+            if (rsvpFilter === "attending") return rsvps.some((r) => r.status === "attending");
+            if (rsvpFilter === "declined") return rsvps.some((r) => r.status === "declined");
+            return true;
+          }).length;
+        }, 0)} guests
       </p>
 
       {/* Table */}
