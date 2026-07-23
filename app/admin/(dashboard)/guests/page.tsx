@@ -30,6 +30,12 @@ export type PartyRow = {
   zip_code: string | null;
   notes: string | null;
   guests: GuestRow[];
+  invited_events: string[]; // event names this party is invited to
+};
+
+export type EventInfo = {
+  id: string;
+  name: string;
 };
 
 /**
@@ -42,7 +48,7 @@ export default async function AdminGuestsPage() {
   const supabase = createServiceClient();
 
   // Fetch everything in parallel
-  const [partiesResult, guestsResult, eventsResult, rsvpsResult, dietResult] =
+  const [partiesResult, guestsResult, eventsResult, rsvpsResult, dietResult, partyEventsResult] =
     await Promise.all([
       supabase
         .from("parties")
@@ -55,6 +61,7 @@ export default async function AdminGuestsPage() {
       supabase.from("events").select("id, name").order("sort_order"),
       supabase.from("rsvps").select("guest_id, event_id, status"),
       supabase.from("dietary_restrictions").select("guest_id, notes"),
+      supabase.from("party_events").select("party_id, event_id"),
     ]);
 
   const parties = partiesResult.data ?? [];
@@ -62,6 +69,7 @@ export default async function AdminGuestsPage() {
   const events = eventsResult.data ?? [];
   const rsvps = rsvpsResult.data ?? [];
   const diets = dietResult.data ?? [];
+  const partyEvents = partyEventsResult.data ?? [];
 
   // Build lookup maps for efficient assembly
   const eventNameById = new Map(events.map((e) => [e.id, e.name]));
@@ -77,6 +85,14 @@ export default async function AdminGuestsPage() {
   }
 
   const dietByGuestId = new Map(diets.map((d) => [d.guest_id, d.notes]));
+
+  // Build party -> invited event names lookup
+  const eventsByPartyId = new Map<string, string[]>();
+  for (const pe of partyEvents) {
+    const list = eventsByPartyId.get(pe.party_id) ?? [];
+    list.push(eventNameById.get(pe.event_id) ?? "Unknown");
+    eventsByPartyId.set(pe.party_id, list);
+  }
 
   // Assemble party rows with nested guest data
   const guestsByPartyId = new Map<string, typeof guests>();
@@ -98,6 +114,7 @@ export default async function AdminGuestsPage() {
     state: p.state,
     zip_code: p.zip_code,
     notes: p.notes,
+    invited_events: eventsByPartyId.get(p.id) ?? [],
     guests: (guestsByPartyId.get(p.id) ?? []).map((g) => ({
       id: g.id,
       first_name: g.first_name,
@@ -111,7 +128,7 @@ export default async function AdminGuestsPage() {
   return (
     <div className="max-w-6xl">
       <h1 className="font-heading text-3xl text-deep-sage mb-8">Guests</h1>
-      <GuestsTable parties={partyRows} />
+      <GuestsTable parties={partyRows} events={events} />
     </div>
   );
 }

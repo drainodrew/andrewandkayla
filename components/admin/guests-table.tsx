@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import type { PartyRow } from "@/app/admin/(dashboard)/guests/page";
+import type { PartyRow, EventInfo } from "@/app/admin/(dashboard)/guests/page";
 
 /**
  * Client component for the admin guests table.
@@ -12,11 +12,12 @@ type RsvpFilter = "all" | "attending" | "declined" | "no-response";
 type SizeFilter = "all" | "1" | "2" | "3+";
 type DietaryFilter = "all" | "has-notes" | "no-notes";
 
-export function GuestsTable({ parties }: { parties: PartyRow[] }) {
+export function GuestsTable({ parties, events }: { parties: PartyRow[]; events: EventInfo[] }) {
   const [search, setSearch] = useState("");
   const [rsvpFilter, setRsvpFilter] = useState<RsvpFilter>("all");
   const [sizeFilter, setSizeFilter] = useState<SizeFilter>("all");
   const [dietaryFilter, setDietaryFilter] = useState<DietaryFilter>("all");
+  const [eventFilter, setEventFilter] = useState("all");
   const [expandedParties, setExpandedParties] = useState<Set<string>>(
     new Set()
   );
@@ -70,9 +71,14 @@ export function GuestsTable({ parties }: { parties: PartyRow[] }) {
         if (dietaryFilter === "no-notes" && hasDiet) return false;
       }
 
+      // Event filter
+      if (eventFilter !== "all") {
+        if (!p.invited_events.includes(eventFilter)) return false;
+      }
+
       return true;
     });
-  }, [parties, search, rsvpFilter, sizeFilter, dietaryFilter]);
+  }, [parties, search, rsvpFilter, sizeFilter, dietaryFilter, eventFilter]);
 
   function toggleExpand(partyId: string) {
     setExpandedParties((prev) => {
@@ -202,13 +208,23 @@ export function GuestsTable({ parties }: { parties: PartyRow[] }) {
             { value: "no-notes", label: "No Notes" },
           ]}
         />
-        {(rsvpFilter !== "all" || sizeFilter !== "all" || dietaryFilter !== "all") && (
+        <FilterSelect
+          label="Event"
+          value={eventFilter}
+          onChange={(v) => setEventFilter(v)}
+          options={[
+            { value: "all", label: "All" },
+            ...events.map((e) => ({ value: e.name, label: e.name })),
+          ]}
+        />
+        {(rsvpFilter !== "all" || sizeFilter !== "all" || dietaryFilter !== "all" || eventFilter !== "all") && (
           <button
             type="button"
             onClick={() => {
               setRsvpFilter("all");
               setSizeFilter("all");
               setDietaryFilter("all");
+              setEventFilter("all");
             }}
             className="self-end text-xs text-deep-sage hover:text-pink transition-colors pb-2"
           >

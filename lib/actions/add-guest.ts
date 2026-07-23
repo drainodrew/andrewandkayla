@@ -440,3 +440,105 @@ export async function listGuestsInParty(partyId: string) {
   if (error) return { error: error.message, guests: [] };
   return { guests: data ?? [] };
 }
+
+/**
+ * Get all RSVPs for guests in a party, organized by guest and event.
+ */
+export async function getGuestRsvps(partyId: string) {
+  const supabase = createServiceClient();
+
+  // Get guests in party
+  const { data: guests } = await supabase
+    .from("guests")
+    .select("id, first_name, last_name")
+    .eq("party_id", partyId)
+    .order("created_at");
+
+  if (!guests) return { error: "Failed to load guests.", guestRsvps: [] };
+
+  // Get party_events to know which events this party is invited to
+  const { data: partyEvts } = await supabase
+    .from("party_events")
+    .select("event_id")
+    .eq("party_id", partyId);
+
+  const invitedEventIds = new Set((partyEvts ?? []).map((pe) => pe.event_id));
+
+  // Get all events
+  const { data: events } = await supabase
+    .from("events")
+    .select("id, name")
+    .order("sort_order");
+
+  if (!events) return { error: "Failed to load events.", guestRsvps: [] };
+
+  // Get existing RSVPs for these guests
+  const guestIds = guests.map((g) => g.id);
+  const { data: rsvps } = await supabase
+    .from("rsvps")
+    .select("id, guest_id, event_id, status")
+    .in("guest_id", guestIds);
+
+  const rsvpMap = new Map<string, { id: string; status: string }>();
+  for (const r of rsvps ?? []) {
+    rsvpMap.set(`${r.guest_id}:${r.event_id}`, { id: r.id, status: r.status });
+  }
+
+  // Build the response: for each guest, list each event they're invited to with current RSVP status
+  // Wedding is universal (all parties invited), others need party_events entry
+  const guestRsvps = guests.map((g) => ({
+    guestId: g.id,
+    guestName: `${g.first_name} ${g.last_name}`,
+    events: events
+      .filter((e) => invitedEventIds.has(e.id) || e.name === "Wedding Ceremony & Reception")
+      .map((e) => {
+        const key = `${g.id}:${e.id}`;
+        const rsvp = rsvpMap.get(key);
+        return {
+          eventId: e.id,
+          eventName: e.name,
+          status: rsvp?.status ?? "pending",
+        };
+      }),
+  }));
+
+  return { guestRsvps };
+}
+
+/**
+ * Set RSVP status for a specific guest + event combination.
+ * Creates or updates the RSVP record.
+ */
+export async function setGuestRsvp(
+  guestId: string,
+  eventId: string,
+  status: "attending" | "declined" | "pending"
+) {
+  const supabase = createServiceClient();
+
+  // Check if RSVP already exists
+  const { data: existing } = await supabase
+    .from("rsvps")
+    .select("id")
+    .eq("guest_id", guestId)
+    .eq("event_id", eventId)
+    .maybeSingle();
+
+  if (existing) {
+    const { error } = await supabase
+      .from("rsvps")
+      .update({ status, responded_at: new Date().toISOString() })
+      .eq("id", existing.id);
+    if (error) return { error: "Failed to update RSVP: " + error.message };
+  } else {
+    const { error } = await supabase.from("rsvps").insert({
+      guest_id: guestId,
+      event_id: eventId,
+      status,
+      responded_at: new Date().toISOString(),
+    });
+    if (error) return { error: "Failed to create RSVP: " + error.message };
+  }
+
+  return { success: true };
+}

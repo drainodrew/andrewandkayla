@@ -13,9 +13,11 @@ import {
   removePartyEvent,
   deleteGuest,
   deleteParty,
+  getGuestRsvps,
+  setGuestRsvp,
 } from "@/lib/actions/add-guest";
 
-type Mode = "new-party" | "add-to-existing" | "separate" | "manage-events" | "delete";
+type Mode = "new-party" | "add-to-existing" | "separate" | "manage-events" | "manage-rsvp" | "delete";
 
 interface GuestRow {
   first_name: string;
@@ -51,7 +53,7 @@ export default function AddGuestPage() {
   const [partiesLoaded, setPartiesLoaded] = useState(false);
 
   useEffect(() => {
-    if ((mode === "add-to-existing" || mode === "separate" || mode === "manage-events" || mode === "delete") && !partiesLoaded) {
+    if ((mode === "add-to-existing" || mode === "separate" || mode === "manage-events" || mode === "manage-rsvp" || mode === "delete") && !partiesLoaded) {
       listParties().then((res) => {
         setParties(res.parties);
         setPartiesLoaded(true);
@@ -67,15 +69,16 @@ export default function AddGuestPage() {
 
   return (
     <div className="max-w-2xl">
-      <h1 className="font-heading text-3xl text-deep-sage mb-6">Add Guest</h1>
+      <h1 className="font-heading text-3xl text-deep-sage mb-6">Edit Guests</h1>
 
       {/* Mode tabs */}
-      <div className="flex gap-1 mb-8 bg-sage/10 rounded-lg p-1">
+      <div className="flex flex-wrap gap-1 mb-8 bg-sage/10 rounded-lg p-1">
         {[
           { key: "new-party" as Mode, label: "New Party" },
           { key: "add-to-existing" as Mode, label: "Add to Existing" },
           { key: "separate" as Mode, label: "Separate Guest" },
           { key: "manage-events" as Mode, label: "Manage Events" },
+          { key: "manage-rsvp" as Mode, label: "Manage RSVPs" },
           { key: "delete" as Mode, label: "Remove" },
         ].map((tab) => (
           <button
@@ -138,6 +141,16 @@ export default function AddGuestPage() {
 
       {mode === "manage-events" && (
         <ManageEventsForm
+          parties={parties}
+          isPending={isPending}
+          startTransition={startTransition}
+          setError={setError}
+          setSuccess={setSuccess}
+        />
+      )}
+
+      {mode === "manage-rsvp" && (
+        <ManageRsvpForm
           parties={parties}
           isPending={isPending}
           startTransition={startTransition}
@@ -798,6 +811,191 @@ function ManageEventsForm({
               <p className="text-xs text-dark/40 mt-3">
                 Note: The wedding day and Friday Festivities are universal (all parties are invited). Toggle Rehearsal Dinner here for parties that need it.
               </p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Manage RSVPs Form ──────────────────────────────────────
+
+interface GuestRsvpData {
+  guestId: string;
+  guestName: string;
+  events: {
+    eventId: string;
+    eventName: string;
+    status: string;
+  }[];
+}
+
+function ManageRsvpForm({
+  parties,
+  isPending,
+  startTransition,
+  setError,
+  setSuccess,
+}: {
+  parties: PartyOption[];
+  isPending: boolean;
+  startTransition: (fn: () => Promise<void>) => void;
+  setError: (s: string) => void;
+  setSuccess: (s: string) => void;
+}) {
+  const [selectedPartyId, setSelectedPartyId] = useState("");
+  const [partySearch, setPartySearch] = useState("");
+  const [guestRsvps, setGuestRsvps] = useState<GuestRsvpData[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  const filteredParties = partySearch.trim()
+    ? parties.filter((p) =>
+        p.invite_name.toLowerCase().includes(partySearch.toLowerCase())
+      )
+    : parties;
+
+  useEffect(() => {
+    if (selectedPartyId) {
+      setLoading(true);
+      getGuestRsvps(selectedPartyId).then((res) => {
+        if (res.error) {
+          setError(res.error);
+        }
+        setGuestRsvps(res.guestRsvps ?? []);
+        setLoading(false);
+      });
+    } else {
+      setGuestRsvps([]);
+    }
+  }, [selectedPartyId, setError]);
+
+  function handleStatusChange(
+    guestId: string,
+    guestName: string,
+    eventId: string,
+    eventName: string,
+    status: "attending" | "declined" | "pending"
+  ) {
+    setError("");
+    setSuccess("");
+    startTransition(async () => {
+      const result = await setGuestRsvp(guestId, eventId, status);
+      if (result.error) {
+        setError(result.error);
+      } else {
+        // Update local state
+        setGuestRsvps((prev) =>
+          prev.map((g) =>
+            g.guestId === guestId
+              ? {
+                  ...g,
+                  events: g.events.map((e) =>
+                    e.eventId === eventId ? { ...e, status } : e
+                  ),
+                }
+              : g
+          )
+        );
+        const statusLabel = status === "attending" ? "Attending" : status === "declined" ? "Declined" : "Pending";
+        setSuccess(`Set ${guestName} to "${statusLabel}" for ${eventName}.`);
+      }
+    });
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white rounded-xl border border-sage/30 p-6">
+        <h2 className="font-heading text-lg text-deep-sage mb-3">
+          Select Party
+        </h2>
+        <input
+          type="text"
+          placeholder="Search parties..."
+          value={partySearch}
+          onChange={(e) => setPartySearch(e.target.value)}
+          className="w-full px-3 py-2 rounded-lg border border-sage/50 bg-white text-dark text-sm placeholder:text-dark/40 focus:outline-none focus:ring-2 focus:ring-pink focus:border-pink transition-colors mb-3"
+        />
+        <select
+          value={selectedPartyId}
+          onChange={(e) => setSelectedPartyId(e.target.value)}
+          className="w-full px-3 py-2 rounded-lg border border-sage/50 bg-white text-dark text-sm focus:outline-none focus:ring-2 focus:ring-pink focus:border-pink transition-colors"
+          size={Math.min(8, filteredParties.length + 1)}
+        >
+          <option value="">Choose a party...</option>
+          {filteredParties.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.invite_name} ({p.party_size})
+            </option>
+          ))}
+        </select>
+      </div>
+
+      {selectedPartyId && (
+        <div className="bg-white rounded-xl border border-sage/30 p-6">
+          <h2 className="font-heading text-lg text-deep-sage mb-4">
+            RSVP Status
+          </h2>
+          {loading ? (
+            <p className="text-sm text-dark/50">Loading RSVPs...</p>
+          ) : guestRsvps.length === 0 ? (
+            <p className="text-sm text-dark/50">No guests found.</p>
+          ) : (
+            <div className="space-y-6">
+              {guestRsvps.map((guest) => (
+                <div key={guest.guestId}>
+                  <h3 className="text-sm font-semibold text-dark mb-2">
+                    {guest.guestName}
+                  </h3>
+                  <div className="space-y-2">
+                    {guest.events.map((event) => (
+                      <div
+                        key={event.eventId}
+                        className="flex items-center justify-between px-4 py-3 rounded-lg border border-sage/30"
+                      >
+                        <span className="text-sm text-dark">
+                          {event.eventName}
+                        </span>
+                        <div className="flex gap-1">
+                          {(["attending", "declined", "pending"] as const).map(
+                            (status) => (
+                              <button
+                                key={status}
+                                type="button"
+                                onClick={() =>
+                                  handleStatusChange(
+                                    guest.guestId,
+                                    guest.guestName,
+                                    event.eventId,
+                                    event.eventName,
+                                    status
+                                  )
+                                }
+                                disabled={isPending}
+                                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors disabled:opacity-50 ${
+                                  event.status === status
+                                    ? status === "attending"
+                                      ? "bg-green-600 text-white"
+                                      : status === "declined"
+                                        ? "bg-red-600 text-white"
+                                        : "bg-dark/60 text-white"
+                                    : "bg-sage/10 text-dark/60 hover:bg-sage/30"
+                                }`}
+                              >
+                                {status === "attending"
+                                  ? "Attending"
+                                  : status === "declined"
+                                    ? "Declined"
+                                    : "Pending"}
+                              </button>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
             </div>
           )}
         </div>
