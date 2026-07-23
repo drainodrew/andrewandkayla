@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import type { PartyRow, EventInfo } from "@/app/admin/(dashboard)/guests/page";
 
 /**
@@ -499,20 +499,56 @@ function FilterSelect({
   onChange: (value: string) => void;
   options: { value: string; label: string }[];
 }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const selectedLabel = options.find((o) => o.value === value)?.label ?? "";
+
+  // Close on click outside
+  useEffect(() => {
+    if (!open) return;
+    function handleClick(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
   return (
-    <div className="flex flex-col">
+    <div className="flex flex-col relative" ref={ref}>
       <label className="text-xs text-dark/50 mb-1">{label}</label>
-      <select
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="px-3 py-1.5 rounded-lg border border-sage/50 bg-white text-dark text-sm focus:outline-none focus:ring-2 focus:ring-pink focus:border-pink transition-colors"
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        className="flex items-center justify-between gap-2 px-3 py-1.5 rounded-lg border border-sage/50 bg-white text-dark text-sm focus:outline-none focus:ring-2 focus:ring-pink focus:border-pink transition-colors min-w-[100px]"
       >
-        {options.map((opt) => (
-          <option key={opt.value} value={opt.value}>
-            {opt.label}
-          </option>
-        ))}
-      </select>
+        <span>{selectedLabel}</span>
+        <svg className="w-3.5 h-3.5 text-dark/40 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+          <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+        </svg>
+      </button>
+      {open && (
+        <div className="absolute top-full left-0 mt-1 z-20 bg-white rounded-lg border border-sage/30 shadow-lg py-1 min-w-full">
+          {options.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => {
+                onChange(opt.value);
+                setOpen(false);
+              }}
+              className={`w-full text-left px-3 py-2 text-sm transition-colors ${
+                value === opt.value
+                  ? "bg-pink/10 text-deep-sage font-medium"
+                  : "text-dark hover:bg-sage/10"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   );
 }
