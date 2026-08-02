@@ -23,6 +23,8 @@ import {
   MAX_HEAD_TABLE_SEATS,
   headTableWidthFor,
   seatOffsetsFor,
+  initialsFor,
+  truncateForPlan,
   snapAndClamp,
   SNAP_FT,
   findCrowdedPairs,
@@ -492,7 +494,7 @@ export function SeatingChart({
   }
 
   function exportCsv() {
-    const headers = ["Table", "Seat", "Guest", "Party"];
+    const headers = ["Table", "Group", "Seat", "Guest", "Party"];
     const rows: string[][] = [];
 
     const ordered = [...localObjects].sort(
@@ -505,6 +507,7 @@ export function SeatingChart({
         if (!guest) continue;
         rows.push([
           csvEscape(obj.label),
+          csvEscape(obj.internal_name ?? ""),
           String(n),
           csvEscape(`${guest.first_name} ${guest.last_name}`),
           csvEscape(guest.party_name),
@@ -517,6 +520,7 @@ export function SeatingChart({
         if (!guest) continue;
         rows.push([
           csvEscape(obj.label),
+          csvEscape(obj.internal_name ?? ""),
           "",
           csvEscape(`${guest.first_name} ${guest.last_name}`),
           csvEscape(guest.party_name),
@@ -527,6 +531,7 @@ export function SeatingChart({
     for (const guest of unseated) {
       rows.push([
         "UNSEATED",
+        "",
         "",
         csvEscape(`${guest.first_name} ${guest.last_name}`),
         csvEscape(guest.party_name),
@@ -928,20 +933,41 @@ function FloorObjectShape({
         />
       )}
 
-      {/* Seat markers */}
+      {/* Seat markers, with the occupant's initials */}
       {seatOffsets.map((offset, i) => {
         const seatNumber = i + 1;
         const occupant = occupantBySeat.get(`${obj.id}:${seatNumber}`);
         return (
-          <circle
-            key={seatNumber}
-            cx={offset.x}
-            cy={offset.y}
-            r="0.62"
-            fill={occupant ? "#F8BBDB" : "#FAF5EE"}
-            stroke={occupant ? "#5C6B4E" : "#C5D0B3"}
-            strokeWidth="0.09"
-          />
+          <g key={seatNumber}>
+            <circle
+              cx={offset.x}
+              cy={offset.y}
+              r="0.72"
+              fill={occupant ? "#F8BBDB" : "#FAF5EE"}
+              stroke={occupant ? "#5C6B4E" : "#C5D0B3"}
+              strokeWidth="0.09"
+            />
+            {occupant && (
+              <text
+                x={offset.x}
+                y={offset.y}
+                textAnchor="middle"
+                dominantBaseline="central"
+                fontSize="0.62"
+                fontWeight="600"
+                fill="#2A2A2A"
+                // Counter-rotate so initials stay upright on a rotated table.
+                transform={
+                  obj.rotation_deg
+                    ? `rotate(${-obj.rotation_deg} ${offset.x} ${offset.y})`
+                    : undefined
+                }
+                style={{ pointerEvents: "none" }}
+              >
+                {initialsFor(occupant)}
+              </text>
+            )}
+          </g>
         );
       })}
 
@@ -970,7 +996,7 @@ function FloorObjectShape({
       <g transform={`rotate(${-obj.rotation_deg})`}>
         <text
           textAnchor="middle"
-          y={isRound ? -0.3 : -0.1}
+          y={obj.internal_name ? -0.6 : isRound ? -0.3 : -0.1}
           fontSize={isRound ? "1.25" : "1"}
           fontWeight="600"
           fill="#2A2A2A"
@@ -978,9 +1004,20 @@ function FloorObjectShape({
         >
           {obj.label}
         </text>
+        {obj.internal_name && (
+          <text
+            textAnchor="middle"
+            y={isRound ? 0.95 : 0.95}
+            fontSize="0.72"
+            fill="#5C6B4E"
+            style={{ pointerEvents: "none" }}
+          >
+            {truncateForPlan(obj.internal_name)}
+          </text>
+        )}
         <text
           textAnchor="middle"
-          y={isRound ? 1.2 : 1.1}
+          y={obj.internal_name ? 2.1 : isRound ? 1.2 : 1.1}
           fontSize="1"
           fill={filled >= obj.seat_count ? "#5C6B4E" : "#2A2A2A"}
           opacity="0.65"
@@ -1024,13 +1061,23 @@ function TablePanel({
   onAssign: (guest: AttendingGuest) => void;
   onUnassign: (guestId: string) => void;
   onSeatParty: (partyId: string) => void;
-  onUpdate: (patch: { label?: string; seat_count?: number }) => void;
+  onUpdate: (patch: {
+    label?: string;
+    internal_name?: string | null;
+    seat_count?: number;
+  }) => void;
   onClear: () => void;
   onDelete: () => void;
   isPending: boolean;
 }) {
   const [labelDraft, setLabelDraft] = useState(obj.label);
   useEffect(() => setLabelDraft(obj.label), [obj.id, obj.label]);
+
+  const [internalDraft, setInternalDraft] = useState(obj.internal_name ?? "");
+  useEffect(
+    () => setInternalDraft(obj.internal_name ?? ""),
+    [obj.id, obj.internal_name]
+  );
 
   const freeSeatCount =
     obj.seat_count -
@@ -1064,7 +1111,10 @@ function TablePanel({
       {/* Table settings */}
       <div className="space-y-3">
         <div>
-          <label className="text-xs text-dark/50 block mb-1">Table name</label>
+          <label className="text-xs text-dark/50 block mb-1">
+            Table name{" "}
+            <span className="text-dark/35">(guests see this)</span>
+          </label>
           <input
             value={labelDraft}
             onChange={(e) => setLabelDraft(e.target.value)}
@@ -1074,6 +1124,23 @@ function TablePanel({
               }
             }}
             className="w-full px-3 py-2 rounded-lg border border-sage/50 text-dark text-sm focus:outline-none focus:ring-2 focus:ring-pink focus:border-pink"
+          />
+        </div>
+
+        <div>
+          <label className="text-xs text-dark/50 block mb-1">
+            Group <span className="text-dark/35">(just for you two)</span>
+          </label>
+          <input
+            value={internalDraft}
+            onChange={(e) => setInternalDraft(e.target.value)}
+            onBlur={() => {
+              if (internalDraft !== (obj.internal_name ?? "")) {
+                onUpdate({ internal_name: internalDraft });
+              }
+            }}
+            placeholder="UNC friends, work friends, Kayla's cousins..."
+            className="w-full px-3 py-2 rounded-lg border border-sage/50 text-dark text-sm placeholder:text-dark/30 focus:outline-none focus:ring-2 focus:ring-pink focus:border-pink"
           />
         </div>
 

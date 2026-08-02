@@ -47,7 +47,7 @@ async function readFloorPlan(supabase: Supabase): Promise<FloorPlanState> {
     supabase
       .from("floor_plan_objects")
       .select(
-        "id, kind, label, x_ft, y_ft, rotation_deg, seat_count, diameter_ft, width_ft, height_ft, sort_order"
+        "id, kind, label, internal_name, x_ft, y_ft, rotation_deg, seat_count, diameter_ft, width_ft, height_ft, sort_order"
       )
       .order("sort_order"),
     supabase

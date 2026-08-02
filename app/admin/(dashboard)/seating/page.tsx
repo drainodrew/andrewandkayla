@@ -45,7 +45,7 @@ export default async function AdminSeatingPage() {
       supabase
         .from("floor_plan_objects")
         .select(
-          "id, kind, label, x_ft, y_ft, rotation_deg, seat_count, diameter_ft, width_ft, height_ft, sort_order"
+          "id, kind, label, internal_name, x_ft, y_ft, rotation_deg, seat_count, diameter_ft, width_ft, height_ft, sort_order"
         )
         .order("sort_order"),
       supabase
@@ -87,6 +87,7 @@ export default async function AdminSeatingPage() {
     id: o.id,
     kind: o.kind,
     label: o.label,
+    internal_name: o.internal_name,
     x_ft: Number(o.x_ft),
     y_ft: Number(o.y_ft),
     rotation_deg: Number(o.rotation_deg),

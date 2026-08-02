@@ -358,7 +358,12 @@ export async function updateSeatCounts(
 
 export async function updateObject(
   id: string,
-  patch: { label?: string; seat_count?: number; rotation_deg?: number }
+  patch: {
+    label?: string;
+    internal_name?: string | null;
+    seat_count?: number;
+    rotation_deg?: number;
+  }
 ): Promise<MutationResult> {
   return mutate(async (supabase) => {
     const update: Record<string, unknown> = {
@@ -378,6 +383,16 @@ export async function updateObject(
       if (!patch.label.trim()) return { error: "Label can't be empty." };
       update.label = patch.label.trim();
       changes.push(`rename to ${patch.label.trim()}`);
+    }
+
+    if (patch.internal_name !== undefined) {
+      // Empty clears it rather than storing "", so the column stays a clean
+      // "has a name or doesn't" rather than two flavours of absent.
+      const trimmed = patch.internal_name?.trim() || null;
+      update.internal_name = trimmed;
+      changes.push(
+        trimmed ? `label ${name} as "${trimmed}"` : `clear ${name} group name`
+      );
     }
 
     if (patch.seat_count !== undefined) {

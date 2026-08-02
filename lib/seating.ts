@@ -68,6 +68,8 @@ export interface FloorObject {
   id: string;
   kind: FloorObjectKind;
   label: string;
+  /** Planning-only shorthand, e.g. "UNC friends". Not guest-facing. */
+  internal_name: string | null;
   x_ft: number;
   y_ft: number;
   rotation_deg: number;
@@ -149,6 +151,38 @@ export function seatOffsetsFor(
     obj.width_ft ?? HEAD_TABLE_WIDTH_FT,
     obj.height_ft ?? HEAD_TABLE_DEPTH_FT
   );
+}
+
+/**
+ * Initials for a seat marker on the floor plan.
+ *
+ * Two characters max: at the scale a seat renders (a ~1.4ft circle in a 60ft
+ * tent) anything longer turns to mush. Falls back to one character when a
+ * guest has no usable last name, which happens with the "Guest of X"
+ * placeholder rows from the CSV import.
+ */
+export function initialsFor(guest: {
+  first_name: string;
+  last_name: string;
+}): string {
+  const letters = (value: string) => value.replace(/[^\p{L}]/gu, "");
+  const first = letters(guest.first_name).charAt(0).toUpperCase();
+  const last = letters(guest.last_name).charAt(0).toUpperCase();
+  return `${first}${last}` || "?";
+}
+
+/**
+ * Shorten a group name for display on the floor plan.
+ *
+ * A 60" round is only 5ft across on a to-scale plan, so anything much past a
+ * dozen characters runs out past the table edge and collides with the seat
+ * markers. The full name still shows in the side panel; this is only the
+ * on-canvas label.
+ */
+export function truncateForPlan(name: string, maxChars = 12): string {
+  const trimmed = name.trim();
+  if (trimmed.length <= maxChars) return trimmed;
+  return `${trimmed.slice(0, maxChars - 1).trimEnd()}...`;
 }
 
 /** Snap a raw foot value to the grid and keep it inside the tent. */
