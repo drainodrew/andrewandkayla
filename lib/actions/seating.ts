@@ -240,6 +240,122 @@ export async function updateObjectPosition(
   );
 }
 
+/**
+ * Move several objects at once, as ONE history entry.
+ *
+ * Dragging a multi-selection must undo as a single step. Calling
+ * updateObjectPosition per table would push one snapshot each, so undoing a
+ * 6-table drag would take six presses and leave the layout half-moved in
+ * between.
+ */
+export async function updateObjectPositions(
+  updates: { id: string; xFt: number; yFt: number }[]
+): Promise<MutationResult> {
+  return mutate(
+    async (supabase) => {
+      if (updates.length === 0) return { error: "Nothing to move." };
+
+      for (const u of updates) {
+        if (!Number.isFinite(u.xFt) || !Number.isFinite(u.yFt)) {
+          return { error: "Invalid position." };
+        }
+      }
+
+      const now = new Date().toISOString();
+      const results = await Promise.all(
+        updates.map((u) =>
+          supabase
+            .from("floor_plan_objects")
+            .update({
+              x_ft: Math.min(TENT_WIDTH_FT, Math.max(0, u.xFt)),
+              y_ft: Math.min(TENT_DEPTH_FT, Math.max(0, u.yFt)),
+              updated_at: now,
+            })
+            .eq("id", u.id)
+        )
+      );
+
+      const failed = results.find((r) => r.error);
+      if (failed?.error) return { error: failed.error.message };
+
+      return {
+        label:
+          updates.length === 1
+            ? "Move table"
+            : `Move ${updates.length} tables`,
+      };
+    },
+    { revalidate: false }
+  );
+}
+
+/** Delete several objects as one history entry, for the same reason. */
+export async function deleteObjects(ids: string[]): Promise<MutationResult> {
+  return mutate(async (supabase) => {
+    if (ids.length === 0) return { error: "Nothing to delete." };
+
+    const { data: existing } = await supabase
+      .from("floor_plan_objects")
+      .select("label")
+      .in("id", ids);
+
+    const { error } = await supabase
+      .from("floor_plan_objects")
+      .delete()
+      .in("id", ids);
+
+    if (error) return { error: error.message };
+
+    const label =
+      ids.length === 1
+        ? `Delete ${existing?.[0]?.label ?? "table"}`
+        : `Delete ${ids.length} tables`;
+    return { label };
+  });
+}
+
+/** Set the seat count on several round tables at once. */
+export async function updateSeatCounts(
+  ids: string[],
+  seatCount: number
+): Promise<MutationResult> {
+  return mutate(async (supabase) => {
+    if (ids.length === 0) return { error: "Nothing to update." };
+    if (!Number.isInteger(seatCount) || seatCount < 0 || seatCount > 12) {
+      return { error: "Seat count must be between 0 and 12." };
+    }
+
+    // Same overflow rule as the single-table path: shrinking a table can't
+    // leave people sitting in chairs that no longer exist.
+    const { data: overflow } = await supabase
+      .from("seat_assignments")
+      .select("id")
+      .in("object_id", ids)
+      .gt("seat_number", seatCount);
+
+    if (overflow && overflow.length > 0) {
+      await supabase
+        .from("seat_assignments")
+        .delete()
+        .in(
+          "id",
+          overflow.map((r) => r.id)
+        );
+    }
+
+    // Head tables derive width from seat count, so they can't be bulk-set
+    // alongside round tables without also resizing. Restrict to rounds.
+    const { error } = await supabase
+      .from("floor_plan_objects")
+      .update({ seat_count: seatCount, updated_at: new Date().toISOString() })
+      .in("id", ids)
+      .eq("kind", "round_table");
+
+    if (error) return { error: error.message };
+    return { label: `Set ${ids.length} tables to ${seatCount} seats` };
+  });
+}
+
 export async function updateObject(
   id: string,
   patch: { label?: string; seat_count?: number; rotation_deg?: number }

@@ -24,6 +24,7 @@ import {
   headTableWidthFor,
   seatOffsetsFor,
   snapAndClamp,
+  SNAP_FT,
   findCrowdedPairs,
   type FloorObject,
   type SeatedGuest,
@@ -34,8 +35,11 @@ import {
   addHeadTable,
   generateRoundTables,
   updateObjectPosition,
+  updateObjectPositions,
   updateObject,
+  updateSeatCounts,
   deleteObject,
+  deleteObjects,
   assignSeat,
   unassignSeat,
   seatPartyAtTable,
@@ -70,7 +74,9 @@ export function SeatingChart({
   // Local copy so dragging is instant. Server is the source of truth for
   // everything else; positions sync back on the next revalidate.
   const [localObjects, setLocalObjects] = useState(objects);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  // A Set, not a single id: shift-click builds a multi-selection, and the
+  // whole selection drags together.
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [targetSeat, setTargetSeat] = useState<number | null>(null);
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -86,12 +92,12 @@ export function SeatingChart({
 
   const svgRef = useRef<SVGSVGElement>(null);
   const dragRef = useRef<{
-    id: string;
-    dx: number;
-    dy: number;
-    /** Position when the drag started, to detect a no-op click. */
-    originX: number;
-    originY: number;
+    ids: string[];
+    /** Pointer position in feet when the drag began. */
+    startX: number;
+    startY: number;
+    /** Where each dragged object sat before the drag, to apply a shared delta. */
+    origins: Map<string, { x: number; y: number }>;
   } | null>(null);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -145,7 +151,14 @@ export function SeatingChart({
 
   const crowded = useMemo(() => findCrowdedPairs(localObjects), [localObjects]);
 
-  const selected = localObjects.find((o) => o.id === selectedId) ?? null;
+  const selectedObjects = useMemo(
+    () => localObjects.filter((o) => selectedIds.has(o.id)),
+    [localObjects, selectedIds]
+  );
+
+  // The detail panel only makes sense for exactly one table; a multi-selection
+  // gets the bulk panel instead.
+  const selected = selectedObjects.length === 1 ? selectedObjects[0] : null;
 
   const totalSeats = localObjects.reduce((sum, o) => sum + o.seat_count, 0);
   const roundTableCount = localObjects.filter(
@@ -201,47 +214,112 @@ export function SeatingChart({
 
   function handlePointerDown(e: React.PointerEvent, obj: FloorObject) {
     e.stopPropagation();
-    setSelectedId(obj.id);
     setTargetSeat(null);
+
+    // Shift-click toggles membership and never starts a drag: you're building
+    // a selection, and moving things mid-build would be surprising.
+    if (e.shiftKey) {
+      setSelectedIds((prev) => {
+        const next = new Set(prev);
+        if (next.has(obj.id)) next.delete(obj.id);
+        else next.add(obj.id);
+        return next;
+      });
+      return;
+    }
+
+    // Grabbing a table that's already part of the selection drags the whole
+    // group. Grabbing one outside it replaces the selection with just that
+    // table, which is how every canvas editor behaves.
+    const draggingIds = selectedIds.has(obj.id) ? [...selectedIds] : [obj.id];
+    if (!selectedIds.has(obj.id)) setSelectedIds(new Set([obj.id]));
+
     const p = clientToFeet(e.clientX, e.clientY);
+    const origins = new Map<string, { x: number; y: number }>();
+    for (const id of draggingIds) {
+      const o = localObjects.find((it) => it.id === id);
+      if (o) origins.set(id, { x: o.x_ft, y: o.y_ft });
+    }
+
     dragRef.current = {
-      id: obj.id,
-      dx: p.x - obj.x_ft,
-      dy: p.y - obj.y_ft,
-      originX: obj.x_ft,
-      originY: obj.y_ft,
+      ids: draggingIds,
+      startX: p.x,
+      startY: p.y,
+      origins,
     };
     e.currentTarget.setPointerCapture(e.pointerId);
   }
 
   function handlePointerMove(e: React.PointerEvent, obj: FloorObject) {
     const drag = dragRef.current;
-    if (!drag || drag.id !== obj.id) return;
+    if (!drag || !drag.ids.includes(obj.id)) return;
+
     const p = clientToFeet(e.clientX, e.clientY);
-    const half = halfExtents(obj);
-    const x = snapAndClamp(p.x - drag.dx, half.x, TENT_WIDTH_FT - half.x);
-    const y = snapAndClamp(p.y - drag.dy, half.y, TENT_DEPTH_FT - half.y);
+
+    // One shared delta for the whole group, snapped once. Clamping each table
+    // independently would squash the group's shape as it hit a tent wall, so
+    // instead the delta itself is clamped to what every member can accept.
+    let dx = Math.round((p.x - drag.startX) / SNAP_FT) * SNAP_FT;
+    let dy = Math.round((p.y - drag.startY) / SNAP_FT) * SNAP_FT;
+
+    let minDx = -Infinity;
+    let maxDx = Infinity;
+    let minDy = -Infinity;
+    let maxDy = Infinity;
+
+    for (const id of drag.ids) {
+      const o = localObjects.find((it) => it.id === id);
+      const origin = drag.origins.get(id);
+      if (!o || !origin) continue;
+      const half = halfExtents(o);
+      minDx = Math.max(minDx, half.x - origin.x);
+      maxDx = Math.min(maxDx, TENT_WIDTH_FT - half.x - origin.x);
+      minDy = Math.max(minDy, half.y - origin.y);
+      maxDy = Math.min(maxDy, TENT_DEPTH_FT - half.y - origin.y);
+    }
+
+    dx = Math.min(maxDx, Math.max(minDx, dx));
+    dy = Math.min(maxDy, Math.max(minDy, dy));
+
     setLocalObjects((prev) =>
-      prev.map((o) => (o.id === obj.id ? { ...o, x_ft: x, y_ft: y } : o))
+      prev.map((o) => {
+        const origin = drag.origins.get(o.id);
+        if (!origin) return o;
+        return { ...o, x_ft: origin.x + dx, y_ft: origin.y + dy };
+      })
     );
   }
 
   function handlePointerUp(e: React.PointerEvent, obj: FloorObject) {
     const drag = dragRef.current;
-    if (!drag || drag.id !== obj.id) return;
+    if (!drag || !drag.ids.includes(obj.id)) return;
     dragRef.current = null;
     e.currentTarget.releasePointerCapture(e.pointerId);
 
-    const current = localObjects.find((o) => o.id === obj.id);
-    if (!current) return;
+    // Only save what actually moved. A plain click to select would otherwise
+    // write a no-op and pile up junk undo entries. Compared against the drag
+    // origins, not the local objects, which are already updated by now.
+    const moved = drag.ids
+      .map((id) => localObjects.find((o) => o.id === id))
+      .filter((o): o is FloorObject => Boolean(o))
+      .filter((o) => {
+        const origin = drag.origins.get(o.id);
+        return origin && (o.x_ft !== origin.x || o.y_ft !== origin.y);
+      });
 
-    // Only save if the table actually moved. A plain click to select a table
-    // would otherwise write a no-op and pile up junk undo entries. Compared
-    // against the drag's origin, not against `obj`, which is already the
-    // updated local copy.
-    if (current.x_ft === drag.originX && current.y_ft === drag.originY) return;
+    if (moved.length === 0) return;
 
-    run(() => updateObjectPosition(obj.id, current.x_ft, current.y_ft));
+    if (moved.length === 1) {
+      run(() =>
+        updateObjectPosition(moved[0].id, moved[0].x_ft, moved[0].y_ft)
+      );
+    } else {
+      run(() =>
+        updateObjectPositions(
+          moved.map((o) => ({ id: o.id, xFt: o.x_ft, yFt: o.y_ft }))
+        )
+      );
+    }
   }
 
   // ---- action helpers ------------------------------------------------
@@ -331,7 +409,7 @@ export function SeatingChart({
     function onKeyDown(e: KeyboardEvent) {
       if (e.key !== "Escape") return;
       if (expanded) setExpanded(false);
-      else setSelectedId(null);
+      else setSelectedIds(new Set());
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
@@ -341,7 +419,7 @@ export function SeatingChart({
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if (e.key !== "Delete" && e.key !== "Backspace") return;
-      if (!selectedId) return;
+      if (selectedIds.size === 0) return;
 
       // Backspace is "delete a character" while typing, and on some browsers
       // it still triggers back-navigation. Never hijack it inside a field.
@@ -355,29 +433,35 @@ export function SeatingChart({
         return;
       }
 
-      const table = localObjects.find((o) => o.id === selectedId);
-      if (!table) return;
+      const ids = [...selectedIds];
+      const tables = localObjects.filter((o) => selectedIds.has(o.id));
+      if (tables.length === 0) return;
 
       e.preventDefault();
 
-      // Deleting a seated table throws those guests back into the unseated
+      // Deleting seated tables throws those guests back into the unseated
       // pile, which is a lot of work to lose to a stray keypress. Undo would
       // recover it, but a confirm is cheaper than discovering it later.
-      const seated = (assignmentsByObject.get(selectedId) ?? []).length;
+      const seated = ids.reduce(
+        (sum, id) => sum + (assignmentsByObject.get(id) ?? []).length,
+        0
+      );
       if (seated > 0) {
+        const what =
+          tables.length === 1 ? tables[0].label : `${tables.length} tables`;
         const ok = window.confirm(
-          `Delete ${table.label}? ${seated} ${seated === 1 ? "person" : "people"} seated there will go back to unseated.`
+          `Delete ${what}? ${seated} ${seated === 1 ? "person" : "people"} seated there will go back to unseated.`
         );
         if (!ok) return;
       }
 
-      setSelectedId(null);
-      run(() => deleteObject(table.id));
+      setSelectedIds(new Set());
+      run(() => (ids.length === 1 ? deleteObject(ids[0]) : deleteObjects(ids)));
     }
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [selectedId, localObjects, assignmentsByObject, run]);
+  }, [selectedIds, localObjects, assignmentsByObject, run]);
 
   function firstFreeSeat(obj: FloorObject): number | null {
     const taken = new Set(
@@ -601,7 +685,7 @@ export function SeatingChart({
                 expanded ? "max-h-[calc(100vh-11rem)]" : ""
               }`}
               onPointerDown={() => {
-                setSelectedId(null);
+                setSelectedIds(new Set());
                 setTargetSeat(null);
               }}
             >
@@ -659,7 +743,7 @@ export function SeatingChart({
                 <FloorObjectShape
                   key={obj.id}
                   obj={obj}
-                  isSelected={obj.id === selectedId}
+                  isSelected={selectedIds.has(obj.id)}
                   isCrowded={crowded.has(obj.id)}
                   assignments={assignmentsByObject.get(obj.id) ?? []}
                   occupantBySeat={occupantBySeat}
@@ -703,15 +787,61 @@ export function SeatingChart({
               </SmallButton>
             )}
             <span className="text-xs text-dark/50 self-center ml-1">
-              Tent fits {MAX_ROUND_TABLES} tables at a comfortable{" "}
-              {ROUND_TABLE_FOOTPRINT_FT}&prime; spacing
+              Shift-click to select several &middot; Delete removes them &middot;
+              tent fits {MAX_ROUND_TABLES} tables at {ROUND_TABLE_FOOTPRINT_FT}
+              &prime; spacing
             </span>
           </div>
         </div>
 
         {/* Side panel */}
         <div className="w-full xl:w-[26rem] shrink-0">
-          {selected ? (
+          {selectedObjects.length > 1 ? (
+            <MultiSelectPanel
+              objects={selectedObjects}
+              assignmentsByObject={assignmentsByObject}
+              isPending={isPending}
+              onDeselect={() => setSelectedIds(new Set())}
+              onSetSeats={(n) =>
+                run(() =>
+                  updateSeatCounts(
+                    selectedObjects
+                      .filter((o) => o.kind === "round_table")
+                      .map((o) => o.id),
+                    n
+                  )
+                )
+              }
+              onClear={() => {
+                const ids = selectedObjects.map((o) => o.id);
+                run(async () => {
+                  // No bulk clear action: clearing is rare enough that reusing
+                  // the single-table path is fine. Only the last result's
+                  // history matters, since each one snapshots.
+                  let last: MutationResult = {};
+                  for (const id of ids) last = await clearTable(id);
+                  return last;
+                });
+              }}
+              onDelete={() => {
+                const ids = selectedObjects.map((o) => o.id);
+                const seated = ids.reduce(
+                  (sum, id) => sum + (assignmentsByObject.get(id) ?? []).length,
+                  0
+                );
+                if (
+                  seated > 0 &&
+                  !window.confirm(
+                    `Delete ${ids.length} tables? ${seated} ${seated === 1 ? "person" : "people"} seated there will go back to unseated.`
+                  )
+                ) {
+                  return;
+                }
+                setSelectedIds(new Set());
+                run(() => deleteObjects(ids));
+              }}
+            />
+          ) : selected ? (
             <TablePanel
               obj={selected}
               assignments={assignmentsByObject.get(selected.id) ?? []}
@@ -730,7 +860,7 @@ export function SeatingChart({
               onUpdate={(patch) => run(() => updateObject(selected.id, patch))}
               onClear={() => run(() => clearTable(selected.id))}
               onDelete={() => {
-                setSelectedId(null);
+                setSelectedIds(new Set());
                 run(() => deleteObject(selected.id));
               }}
               isPending={isPending}
@@ -1173,6 +1303,113 @@ function TablePanel({
           className="text-xs text-dark/50 hover:text-red-600 transition-colors"
         >
           Delete table
+        </button>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Panel for a multi-selection. Deliberately narrow: the things that make
+ * sense to do to several tables at once, and nothing else. Seating a specific
+ * person needs one table, so that UI stays in the single-table panel.
+ */
+function MultiSelectPanel({
+  objects,
+  assignmentsByObject,
+  onSetSeats,
+  onClear,
+  onDelete,
+  onDeselect,
+  isPending,
+}: {
+  objects: FloorObject[];
+  assignmentsByObject: Map<string, SeatedGuest[]>;
+  onSetSeats: (n: number) => void;
+  onClear: () => void;
+  onDelete: () => void;
+  onDeselect: () => void;
+  isPending: boolean;
+}) {
+  const rounds = objects.filter((o) => o.kind === "round_table");
+  const seated = objects.reduce(
+    (sum, o) => sum + (assignmentsByObject.get(o.id) ?? []).length,
+    0
+  );
+  const seats = objects.reduce((sum, o) => sum + o.seat_count, 0);
+
+  return (
+    <div className="bg-white rounded-xl border border-sage/30 p-4 space-y-4">
+      <div className="flex items-start justify-between gap-2">
+        <div>
+          <h3 className="text-sm font-medium text-deep-sage">
+            {objects.length} tables selected
+          </h3>
+          <p className="text-xs text-dark/50 mt-0.5">
+            {seated} of {seats} seats filled &middot; drag any one to move them
+            all
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onDeselect}
+          className="text-xs text-dark/50 hover:text-deep-sage transition-colors shrink-0"
+        >
+          Deselect
+        </button>
+      </div>
+
+      <div className="max-h-40 overflow-y-auto text-sm text-dark/70 space-y-0.5 pr-1">
+        {objects.map((o) => (
+          <div key={o.id} className="flex justify-between gap-2">
+            <span className="truncate">{o.label}</span>
+            <span className="text-dark/40 shrink-0">
+              {(assignmentsByObject.get(o.id) ?? []).length}/{o.seat_count}
+            </span>
+          </div>
+        ))}
+      </div>
+
+      {rounds.length > 0 && (
+        <div>
+          <label className="text-xs text-dark/50 block mb-1">
+            Seats per round table ({rounds.length} of {objects.length})
+          </label>
+          <div className="flex gap-2">
+            {[DEFAULT_SEAT_COUNT, MAX_SEAT_COUNT].map((n) => (
+              <button
+                key={n}
+                type="button"
+                onClick={() => onSetSeats(n)}
+                disabled={isPending}
+                className="px-4 py-1.5 rounded-lg text-sm border border-sage/50 text-dark/70 hover:bg-sage/10 disabled:opacity-40 transition-colors"
+              >
+                {n}
+                {n === MAX_SEAT_COUNT && (
+                  <span className="text-xs text-dark/50"> (tight)</span>
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="flex gap-3 pt-3 border-t border-sage/20">
+        <button
+          type="button"
+          onClick={onClear}
+          disabled={isPending || seated === 0}
+          className="text-xs text-dark/50 hover:text-deep-sage disabled:opacity-40 transition-colors"
+        >
+          Clear {objects.length} tables
+        </button>
+        <button
+          type="button"
+          onClick={onDelete}
+          disabled={isPending}
+          className="text-xs text-dark/50 hover:text-red-600 transition-colors"
+        >
+          Delete {objects.length} tables
         </button>
       </div>
     </div>
