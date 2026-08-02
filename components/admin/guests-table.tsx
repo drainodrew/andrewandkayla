@@ -147,8 +147,12 @@ export function GuestsTable({ parties, events }: { parties: PartyRow[]; events: 
           csvEscape(g.last_name),
           g.is_placeholder ? "Yes" : "No",
           csvEscape(
-            g.rsvps.map((r) => `${r.event_name}: ${r.status}`).join("; ") ||
-              "No response"
+            (eventFilter !== "all"
+              ? g.rsvps.filter((r) => r.event_name === eventFilter)
+              : g.rsvps
+            )
+              .map((r) => `${r.event_name}: ${r.status}`)
+              .join("; ") || "No response"
           ),
           csvEscape(g.dietary_notes ?? ""),
           csvEscape(p.email ?? ""),
@@ -306,7 +310,7 @@ export function GuestsTable({ parties, events }: { parties: PartyRow[]; events: 
             ) : (
               filtered.map((party) => {
                 const isExpanded = expandedParties.has(party.id);
-                const rsvpSummary = getPartyRsvpSummary(party);
+                const rsvpSummary = getPartyRsvpSummary(party, eventFilter);
                 const dietarySummary = getPartyDietarySummary(party);
 
                 return (
@@ -451,17 +455,25 @@ function PartyTableRow({
 /**
  * Summarize a party's RSVP status for the table row.
  * e.g. "2 attending, 1 declined" or "No response"
+ *
+ * Scoped to eventFilter when one is selected, otherwise a party of 1 who
+ * responded to all three events reads as "3 attending", which looks like a
+ * head count and isn't.
  */
-function getPartyRsvpSummary(party: PartyRow): string {
+function getPartyRsvpSummary(party: PartyRow, eventFilter: string): string {
   let attending = 0;
   let declined = 0;
   let pending = 0;
   let hasAnyRsvp = false;
 
   for (const guest of party.guests) {
-    if (guest.rsvps.length > 0) {
+    const rsvps =
+      eventFilter !== "all"
+        ? guest.rsvps.filter((r) => r.event_name === eventFilter)
+        : guest.rsvps;
+    if (rsvps.length > 0) {
       hasAnyRsvp = true;
-      for (const r of guest.rsvps) {
+      for (const r of rsvps) {
         if (r.status === "attending") attending++;
         else if (r.status === "declined") declined++;
         else pending++;

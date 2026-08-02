@@ -58,7 +58,7 @@ export default async function AdminGuestsPage() {
         .from("guests")
         .select("id, party_id, first_name, last_name, is_placeholder")
         .order("created_at"),
-      supabase.from("events").select("id, name").order("sort_order"),
+      supabase.from("events").select("id, name, slug").order("sort_order"),
       supabase.from("rsvps").select("guest_id, event_id, status"),
       supabase.from("dietary_restrictions").select("guest_id, notes"),
       supabase.from("party_events").select("party_id, event_id"),
@@ -86,7 +86,17 @@ export default async function AdminGuestsPage() {
 
   const dietByGuestId = new Map(diets.map((d) => [d.guest_id, d.notes]));
 
-  // Build party -> invited event names lookup
+  // Build party -> invited event names lookup.
+  //
+  // party_events only stores the *ancillary* invites (rehearsal dinner, Friday
+  // festivities). The wedding is universal: every party is invited, so we
+  // deliberately never wrote party_events rows for it (see the comment at the
+  // top of 20260526000001_party_events.sql). Same rule the RSVP flow uses in
+  // lib/actions/rsvp.ts: slug contains "wedding" => everyone's invited.
+  const universalEventNames = events
+    .filter((e) => e.slug?.includes("wedding"))
+    .map((e) => e.name);
+
   const eventsByPartyId = new Map<string, string[]>();
   for (const pe of partyEvents) {
     const list = eventsByPartyId.get(pe.party_id) ?? [];
@@ -114,7 +124,9 @@ export default async function AdminGuestsPage() {
     state: p.state,
     zip_code: p.zip_code,
     notes: p.notes,
-    invited_events: eventsByPartyId.get(p.id) ?? [],
+    invited_events: [
+      ...new Set([...universalEventNames, ...(eventsByPartyId.get(p.id) ?? [])]),
+    ],
     guests: (guestsByPartyId.get(p.id) ?? []).map((g) => ({
       id: g.id,
       first_name: g.first_name,
