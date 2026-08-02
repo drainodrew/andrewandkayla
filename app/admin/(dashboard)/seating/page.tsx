@@ -1,5 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { SeatingChart } from "@/components/admin/seating-chart";
+import { getHistoryState } from "@/lib/actions/seating-history";
 import type {
   AttendingGuest,
   FloorObject,
@@ -33,8 +34,14 @@ export default async function AdminSeatingPage() {
     );
   }
 
-  const [objectsResult, assignmentsResult, rsvpsResult, guestsResult, partiesResult] =
-    await Promise.all([
+  const [
+    objectsResult,
+    assignmentsResult,
+    rsvpsResult,
+    guestsResult,
+    partiesResult,
+    history,
+  ] = await Promise.all([
       supabase
         .from("floor_plan_objects")
         .select(
@@ -51,6 +58,7 @@ export default async function AdminSeatingPage() {
         .eq("status", "attending"),
       supabase.from("guests").select("id, party_id, first_name, last_name"),
       supabase.from("parties").select("id, invite_name"),
+      getHistoryState(),
     ]);
 
   const attendingIds = new Set((rsvpsResult.data ?? []).map((r) => r.guest_id));
@@ -104,6 +112,7 @@ export default async function AdminSeatingPage() {
       objects={objects}
       assignments={assignments}
       guests={attendingGuests}
+      history={history}
     />
   );
 }

@@ -1,6 +1,14 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect, useTransition } from "react";
+import {
+  useState,
+  useMemo,
+  useRef,
+  useEffect,
+  useCallback,
+  useTransition,
+} from "react";
+import { useRouter } from "next/navigation";
 import {
   TENT_WIDTH_FT,
   TENT_DEPTH_FT,
@@ -29,20 +37,33 @@ import {
   unassignSeat,
   seatPartyAtTable,
   clearTable,
+  type MutationResult,
 } from "@/lib/actions/seating";
+import { undoSeating, redoSeating } from "@/lib/actions/seating-history";
+import type { HistoryState } from "@/lib/seating-history-core";
 
 /** Padding around the tent in the viewBox so the outline isn't clipped. */
 const PAD_FT = 3;
+
+/**
+ * Autosave indicator state. Every edit writes to Supabase immediately, so
+ * there is no "unsaved" state to worry about; this exists purely so you can
+ * SEE that, and so a failed write is loud instead of silent.
+ */
+type SaveStatus = "idle" | "saving" | "saved" | "error";
 
 export function SeatingChart({
   objects,
   assignments,
   guests,
+  history,
 }: {
   objects: FloorObject[];
   assignments: SeatedGuest[];
   guests: AttendingGuest[];
+  history: HistoryState;
 }) {
+  const router = useRouter();
   // Local copy so dragging is instant. Server is the source of truth for
   // everything else; positions sync back on the next revalidate.
   const [localObjects, setLocalObjects] = useState(objects);
@@ -51,13 +72,36 @@ export function SeatingChart({
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
+  const [expanded, setExpanded] = useState(false);
+
+  // History arrives from the server on every revalidate, but drag saves
+  // deliberately skip revalidation, so we keep a local copy the actions can
+  // update directly.
+  const [historyState, setHistoryState] = useState(history);
+  useEffect(() => setHistoryState(history), [history]);
 
   const svgRef = useRef<SVGSVGElement>(null);
-  const dragRef = useRef<{ id: string; dx: number; dy: number } | null>(null);
+  const dragRef = useRef<{
+    id: string;
+    dx: number;
+    dy: number;
+    /** Position when the drag started, to detect a no-op click. */
+    originX: number;
+    originY: number;
+  } | null>(null);
+  const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     setLocalObjects(objects);
   }, [objects]);
+
+  // Clear the pending "Saved" fade timer if the component unmounts mid-flight.
+  useEffect(() => {
+    return () => {
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+    };
+  }, []);
 
   const guestById = useMemo(
     () => new Map(guests.map((g) => [g.id, g])),
@@ -147,7 +191,13 @@ export function SeatingChart({
     setSelectedId(obj.id);
     setTargetSeat(null);
     const p = clientToFeet(e.clientX, e.clientY);
-    dragRef.current = { id: obj.id, dx: p.x - obj.x_ft, dy: p.y - obj.y_ft };
+    dragRef.current = {
+      id: obj.id,
+      dx: p.x - obj.x_ft,
+      dy: p.y - obj.y_ft,
+      originX: obj.x_ft,
+      originY: obj.y_ft,
+    };
     e.currentTarget.setPointerCapture(e.pointerId);
   }
 
@@ -171,19 +221,107 @@ export function SeatingChart({
 
     const current = localObjects.find((o) => o.id === obj.id);
     if (!current) return;
-    // Fire and forget; this action intentionally doesn't revalidate.
-    void updateObjectPosition(obj.id, current.x_ft, current.y_ft);
+
+    // Only save if the table actually moved. A plain click to select a table
+    // would otherwise write a no-op and pile up junk undo entries. Compared
+    // against the drag's origin, not against `obj`, which is already the
+    // updated local copy.
+    if (current.x_ft === drag.originX && current.y_ft === drag.originY) return;
+
+    run(() => updateObjectPosition(obj.id, current.x_ft, current.y_ft));
   }
 
   // ---- action helpers ------------------------------------------------
 
-  function run(fn: () => Promise<{ error?: string } | void>) {
-    setError(null);
-    startTransition(async () => {
-      const result = await fn();
-      if (result && "error" in result && result.error) setError(result.error);
+  /**
+   * Run a mutation, tracking save state so the UI can show that the write
+   * landed. Every action here persists immediately; this wrapper is what
+   * makes that visible instead of merely true.
+   */
+  const run = useCallback(
+    (fn: () => Promise<MutationResult>) => {
+      setError(null);
+      setSaveStatus("saving");
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+
+      startTransition(async () => {
+        try {
+          const result = await fn();
+          if (result.error) {
+            setError(result.error);
+            setSaveStatus("error");
+            return;
+          }
+          if (result.history) setHistoryState(result.history);
+          setSaveStatus("saved");
+          // Fade the confirmation rather than leaving it up forever.
+          savedTimerRef.current = setTimeout(() => setSaveStatus("idle"), 2000);
+        } catch {
+          // Network dropped, deploy mid-request, etc. Previously this was a
+          // silent failure on drags; now it surfaces.
+          setError("Couldn't reach the server. Your last change may not have saved.");
+          setSaveStatus("error");
+        }
+      });
+    },
+    []
+  );
+
+  const handleUndo = useCallback(() => {
+    run(async () => {
+      const result = await undoSeating();
+      if (result.history) setHistoryState(result.history);
+      router.refresh();
+      return result;
     });
-  }
+  }, [run, router]);
+
+  const handleRedo = useCallback(() => {
+    run(async () => {
+      const result = await redoSeating();
+      if (result.history) setHistoryState(result.history);
+      router.refresh();
+      return result;
+    });
+  }, [run, router]);
+
+  // Cmd/Ctrl+Z and Cmd/Ctrl+Shift+Z, skipped while typing in a field so
+  // undo still means "undo my typing" inside the table-name input.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLowerCase() !== "z") return;
+
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      e.preventDefault();
+      if (e.shiftKey) {
+        if (historyState.canRedo) handleRedo();
+      } else if (historyState.canUndo) {
+        handleUndo();
+      }
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [historyState.canUndo, historyState.canRedo, handleUndo, handleRedo]);
+
+  // Escape leaves the expanded floor plan.
+  useEffect(() => {
+    if (!expanded) return;
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === "Escape") setExpanded(false);
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [expanded]);
 
   function firstFreeSeat(obj: FloorObject): number | null {
     const taken = new Set(
@@ -268,40 +406,63 @@ export function SeatingChart({
   // ---- render --------------------------------------------------------
 
   return (
-    <div className="max-w-[1600px]">
-      <div className="flex flex-wrap items-end justify-between gap-4 mb-6">
-        <div>
-          <h1 className="font-heading text-3xl text-deep-sage">Seating</h1>
-          <p className="text-sm text-dark/60 mt-1">
-            {TENT_WIDTH_FT}&prime; &times; {TENT_DEPTH_FT}&prime; tent &middot;{" "}
-            {ROUND_TABLE_DIAMETER_FT * 12}&Prime; round tables &middot; drag to
-            rearrange
-          </p>
+    <div
+      className={
+        expanded
+          ? // Fixed overlay so the plan uses the whole window. The sidebar and
+            // page padding are behind it, which is the point.
+            "fixed inset-0 z-40 bg-cream p-4 overflow-auto"
+          : "max-w-[1600px]"
+      }
+    >
+      {!expanded && (
+        <div className="flex flex-wrap items-end justify-between gap-4 mb-4">
+          <div>
+            <h1 className="font-heading text-3xl text-deep-sage">Seating</h1>
+            <p className="text-sm text-dark/60 mt-1">
+              {TENT_WIDTH_FT}&prime; &times; {TENT_DEPTH_FT}&prime; tent &middot;{" "}
+              {ROUND_TABLE_DIAMETER_FT * 12}&Prime; round tables &middot; drag to
+              rearrange
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={exportCsv}
+            className="px-5 py-2.5 rounded-lg bg-pink text-dark text-sm font-medium hover:bg-pink/80 focus:outline-none focus:ring-2 focus:ring-pink focus:ring-offset-2 focus:ring-offset-cream transition-colors"
+          >
+            Export CSV
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={exportCsv}
-          className="px-5 py-2.5 rounded-lg bg-pink text-dark text-sm font-medium hover:bg-pink/80 focus:outline-none focus:ring-2 focus:ring-pink focus:ring-offset-2 focus:ring-offset-cream transition-colors"
-        >
-          Export CSV
-        </button>
+      )}
+
+      {/* Undo/redo + autosave status */}
+      <div className="flex flex-wrap items-center gap-2 mb-4">
+        <UndoRedoBar
+          history={historyState}
+          onUndo={handleUndo}
+          onRedo={handleRedo}
+          disabled={isPending}
+        />
+        <SaveIndicator status={saveStatus} history={historyState} />
       </div>
 
-      {/* Stats bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
-        <Stat label="Attending" value={guests.length} />
-        <Stat label="Seated" value={guests.length - unseated.length} />
-        <Stat
-          label="Unseated"
-          value={unseated.length}
-          tone={unseated.length > 0 ? "warn" : "ok"}
-        />
-        <Stat
-          label="Seats available"
-          value={totalSeats}
-          tone={totalSeats < guests.length ? "warn" : "ok"}
-        />
-      </div>
+      {/* Stats bar. Hidden when expanded to give the plan the vertical room. */}
+      {!expanded && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+          <Stat label="Attending" value={guests.length} />
+          <Stat label="Seated" value={guests.length - unseated.length} />
+          <Stat
+            label="Unseated"
+            value={unseated.length}
+            tone={unseated.length > 0 ? "warn" : "ok"}
+          />
+          <Stat
+            label="Seats available"
+            value={totalSeats}
+            tone={totalSeats < guests.length ? "warn" : "ok"}
+          />
+        </div>
+      )}
 
       {totalSeats < guests.length && roundTableCount > 0 && (
         <Banner tone="warn">
@@ -338,13 +499,51 @@ export function SeatingChart({
       <div className="flex flex-col xl:flex-row gap-6">
         {/* Floor plan */}
         <div className="flex-1 min-w-0">
-          <div className="bg-white rounded-xl border border-sage/30 p-3">
+          <div className="bg-white rounded-xl border border-sage/30 p-3 relative">
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              title={
+                expanded ? "Exit full screen (Esc)" : "Expand to full window"
+              }
+              aria-label={
+                expanded ? "Exit full screen" : "Expand to full window"
+              }
+              className="absolute top-4 right-4 z-10 p-1.5 rounded-lg bg-white/90 border border-sage/40 text-dark/60 hover:text-deep-sage hover:border-sage transition-colors"
+            >
+              <svg
+                className="w-4 h-4"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth={2}
+                stroke="currentColor"
+              >
+                {expanded ? (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 9h4.5M15 9V4.5M15 9l5.25-5.25M15 15h4.5M15 15v4.5m0-4.5l5.25 5.25"
+                  />
+                ) : (
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"
+                  />
+                )}
+              </svg>
+            </button>
             <svg
               ref={svgRef}
               viewBox={`${-PAD_FT} ${-PAD_FT} ${TENT_WIDTH_FT + PAD_FT * 2} ${
                 TENT_DEPTH_FT + PAD_FT * 2
               }`}
-              className="w-full h-auto touch-none select-none"
+              // In expanded mode the plan should fill the viewport height.
+              // preserveAspectRatio (default xMidYMid meet) keeps the tent
+              // centered and undistorted inside whatever box it gets.
+              className={`w-full h-auto touch-none select-none ${
+                expanded ? "max-h-[calc(100vh-11rem)]" : ""
+              }`}
               onPointerDown={() => {
                 setSelectedId(null);
                 setTargetSeat(null);
@@ -945,6 +1144,127 @@ function UnseatedPanel({
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Undo/redo controls. Labels name the specific change ("Undo: Seat the Myers
+ * party at Table 3") so you know what you're about to reverse, which matters
+ * a lot when two admins are editing the same plan.
+ */
+function UndoRedoBar({
+  history,
+  onUndo,
+  onRedo,
+  disabled,
+}: {
+  history: HistoryState;
+  onUndo: () => void;
+  onRedo: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        type="button"
+        onClick={onUndo}
+        disabled={disabled || !history.canUndo}
+        title={
+          history.undoLabel
+            ? `Undo: ${history.undoLabel}`
+            : "Nothing to undo"
+        }
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-sage/50 text-sm text-dark/80 hover:bg-sage/10 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
+      >
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth={2}
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"
+          />
+        </svg>
+        Undo
+      </button>
+      <button
+        type="button"
+        onClick={onRedo}
+        disabled={disabled || !history.canRedo}
+        title={
+          history.redoLabel ? `Redo: ${history.redoLabel}` : "Nothing to redo"
+        }
+        className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-sage/50 text-sm text-dark/80 hover:bg-sage/10 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
+      >
+        <svg
+          className="w-4 h-4"
+          fill="none"
+          viewBox="0 0 24 24"
+          strokeWidth={2}
+          stroke="currentColor"
+        >
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            d="M15 15l6-6m0 0l-6-6m6 6H9a6 6 0 000 12h3"
+          />
+        </svg>
+        Redo
+      </button>
+    </div>
+  );
+}
+
+/**
+ * Autosave status. There is no save button because there is nothing to save:
+ * every edit is already written. This tells you that happened, and shouts if
+ * a write failed.
+ */
+function SaveIndicator({
+  status,
+  history,
+}: {
+  status: SaveStatus;
+  history: HistoryState;
+}) {
+  if (status === "saving") {
+    return <span className="text-xs text-dark/50">Saving...</span>;
+  }
+
+  if (status === "error") {
+    return (
+      <span className="text-xs text-red-700 font-medium">
+        Not saved, see the error below
+      </span>
+    );
+  }
+
+  if (status === "saved") {
+    return <span className="text-xs text-deep-sage">All changes saved</span>;
+  }
+
+  if (history.lastEditedAt) {
+    const who = history.lastEditedBy;
+    return (
+      <span className="text-xs text-dark/40">
+        Saved automatically &middot; last edit{" "}
+        {new Date(history.lastEditedAt).toLocaleString(undefined, {
+          month: "short",
+          day: "numeric",
+          hour: "numeric",
+          minute: "2-digit",
+        })}
+        {who ? ` by ${who}` : ""}
+      </span>
+    );
+  }
+
+  return (
+    <span className="text-xs text-dark/40">Changes save automatically</span>
   );
 }
 
