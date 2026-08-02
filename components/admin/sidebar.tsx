@@ -9,6 +9,7 @@ const ADMIN_NAV = [
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/guests", label: "Guests" },
   { href: "/admin/add-guest", label: "Edit Guests" },
+  { href: "/admin/seating", label: "Seating" },
   { href: "/admin/registry", label: "Registry" },
 ] as const;
 
