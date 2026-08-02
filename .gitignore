@@ -51,3 +51,6 @@ functionality reference photos/
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Playwright MCP browser artifacts (snapshots, screenshots, console logs)
+.playwright-mcp/

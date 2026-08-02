@@ -61,6 +61,18 @@ const PAD_FT = 3;
  */
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 
+/** What's being dragged from the guest list onto the floor plan. */
+type DragPayload =
+  | { kind: "guest"; guest: AttendingGuest }
+  | { kind: "party"; partyId: string; name: string; count: number };
+
+/**
+ * How far the pointer must travel before a press on a guest row becomes a
+ * drag rather than a click. Without a threshold, every click would register
+ * as a tiny drag and the click-to-seat path would stop working.
+ */
+const DRAG_THRESHOLD_PX = 5;
+
 export function SeatingChart({
   objects,
   assignments,
@@ -102,6 +114,19 @@ export function SeatingChart({
     origins: Map<string, { x: number; y: number }>;
   } | null>(null);
   const savedTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // Dragging a person or party from the list onto the plan.
+  // `pendingDrag` is armed on pointerdown; it only becomes a real drag once
+  // the pointer moves past the threshold, so plain clicks still seat people.
+  const [pendingDrag, setPendingDrag] = useState<DragPayload | null>(null);
+  const [dragging, setDragging] = useState(false);
+  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
+  const [dropTarget, setDropTarget] = useState<{
+    objectId: string;
+    seatNumber: number | null;
+  } | null>(null);
+  const dragStartRef = useRef<{ x: number; y: number } | null>(null);
+  const didDragRef = useRef(false);
 
   useEffect(() => {
     setLocalObjects(objects);
@@ -417,6 +442,83 @@ export function SeatingChart({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [expanded]);
 
+  /**
+   * Window-level listeners for dragging a person onto the plan.
+   *
+   * Bound to the window rather than the row because the pointer has to travel
+   * from an HTML list into an SVG canvas, and no single element contains both.
+   */
+  useEffect(() => {
+    if (!pendingDrag) return;
+
+    function onMove(e: PointerEvent) {
+      const start = dragStartRef.current;
+      if (!start) return;
+
+      if (
+        !didDragRef.current &&
+        Math.hypot(e.clientX - start.x, e.clientY - start.y) <
+          DRAG_THRESHOLD_PX
+      ) {
+        return;
+      }
+
+      didDragRef.current = true;
+      setDragging(true);
+      setDragPos({ x: e.clientX, y: e.clientY });
+      setDropTarget(hitTest(e.clientX, e.clientY));
+    }
+
+    function onUp(e: PointerEvent) {
+      const wasDrag = didDragRef.current;
+      const payload = pendingDrag;
+      const target = wasDrag ? hitTest(e.clientX, e.clientY) : null;
+
+      setPendingDrag(null);
+      setDragging(false);
+      setDragPos(null);
+      setDropTarget(null);
+      dragStartRef.current = null;
+
+      if (!wasDrag || !target || !payload) return;
+
+      const obj = localObjects.find((o) => o.id === target.objectId);
+      if (!obj) return;
+
+      if (payload.kind === "party") {
+        // A party fills consecutive free chairs; a specific chair is
+        // meaningless for a group, so the seat under the cursor is ignored.
+        run(() => seatPartyAtTable(payload.partyId, obj.id));
+        return;
+      }
+
+      const seat = target.seatNumber ?? firstFreeSeat(obj);
+      if (seat === null) {
+        setError(`${obj.label} is full.`);
+        return;
+      }
+      run(() => assignSeat(payload.guest.id, obj.id, seat));
+    }
+
+    // Cancel cleanly if the OS takes the pointer away mid-drag.
+    function onCancel() {
+      setPendingDrag(null);
+      setDragging(false);
+      setDragPos(null);
+      setDropTarget(null);
+      dragStartRef.current = null;
+    }
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onCancel);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onCancel);
+    };
+  }, [pendingDrag, localObjects, run]);
+
   // Delete/Backspace removes the selected table.
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -464,6 +566,63 @@ export function SeatingChart({
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [selectedIds, localObjects, assignmentsByObject, run]);
+
+  // ---- drag a guest or party from the list onto the plan ---------------
+
+  /**
+   * Which table (and optionally which chair) sits under a screen point.
+   *
+   * Works in feet against the object list rather than hit-testing DOM nodes,
+   * so the same math that draws a seat decides what a drop lands on. Seats win
+   * over tables: dropping right on a chair means that chair specifically.
+   *
+   * Rotation is ignored, which is fine while every object is axis-aligned.
+   */
+  function hitTest(
+    clientX: number,
+    clientY: number
+  ): { objectId: string; seatNumber: number | null } | null {
+    const p = clientToFeet(clientX, clientY);
+
+    for (const obj of localObjects) {
+      const offsets = seatOffsetsFor(obj);
+      for (let i = 0; i < offsets.length; i++) {
+        const sx = obj.x_ft + offsets[i].x;
+        const sy = obj.y_ft + offsets[i].y;
+        if (Math.hypot(p.x - sx, p.y - sy) <= 1.0) {
+          return { objectId: obj.id, seatNumber: i + 1 };
+        }
+      }
+    }
+
+    for (const obj of localObjects) {
+      if (obj.kind === "round_table") {
+        const r = (obj.diameter_ft ?? ROUND_TABLE_DIAMETER_FT) / 2;
+        if (Math.hypot(p.x - obj.x_ft, p.y - obj.y_ft) <= r + 1.6) {
+          return { objectId: obj.id, seatNumber: null };
+        }
+      } else {
+        const hw = (obj.width_ft ?? HEAD_TABLE_WIDTH_FT) / 2;
+        const hh = (obj.height_ft ?? HEAD_TABLE_DEPTH_FT) / 2;
+        if (
+          Math.abs(p.x - obj.x_ft) <= hw + 1.6 &&
+          Math.abs(p.y - obj.y_ft) <= hh + 1.6
+        ) {
+          return { objectId: obj.id, seatNumber: null };
+        }
+      }
+    }
+
+    return null;
+  }
+
+  function beginPersonDrag(e: React.PointerEvent, payload: DragPayload) {
+    // Left button only, and don't fight text selection in inputs.
+    if (e.button !== 0) return;
+    dragStartRef.current = { x: e.clientX, y: e.clientY };
+    didDragRef.current = false;
+    setPendingDrag(payload);
+  }
 
   function firstFreeSeat(obj: FloorObject): number | null {
     const taken = new Set(
@@ -590,6 +749,22 @@ export function SeatingChart({
         />
         <SaveIndicator status={saveStatus} history={historyState} />
       </div>
+
+      {/* Drag ghost. Fixed to the viewport and pointer-events-none so it never
+          swallows the pointermove that's driving the drag. */}
+      {dragging && dragPos && pendingDrag && (
+        <div
+          className="fixed z-50 pointer-events-none px-2.5 py-1 rounded-lg bg-pink text-dark text-xs font-medium shadow-lg border border-deep-sage/30"
+          style={{ left: dragPos.x + 12, top: dragPos.y + 12 }}
+        >
+          {pendingDrag.kind === "guest"
+            ? `${pendingDrag.guest.first_name} ${pendingDrag.guest.last_name}`
+            : `${pendingDrag.name} (${pendingDrag.count})`}
+          {dropTarget === null && (
+            <span className="text-dark/50"> &middot; drop on a table</span>
+          )}
+        </div>
+      )}
 
       {/* Stats bar. Hidden when expanded to give the plan the vertical room. */}
       {!expanded && (
@@ -750,6 +925,11 @@ export function SeatingChart({
                   obj={obj}
                   isSelected={selectedIds.has(obj.id)}
                   isCrowded={crowded.has(obj.id)}
+                  dropSeat={
+                    dropTarget?.objectId === obj.id
+                      ? (dropTarget.seatNumber ?? "table")
+                      : null
+                  }
                   assignments={assignmentsByObject.get(obj.id) ?? []}
                   occupantBySeat={occupantBySeat}
                   onPointerDown={(e) => handlePointerDown(e, obj)}
@@ -862,6 +1042,8 @@ export function SeatingChart({
               onSeatParty={(partyId) =>
                 run(() => seatPartyAtTable(partyId, selected.id))
               }
+              onDragStart={beginPersonDrag}
+              didDrag={() => didDragRef.current}
               onUpdate={(patch) => run(() => updateObject(selected.id, patch))}
               onClear={() => run(() => clearTable(selected.id))}
               onDelete={() => {
@@ -875,6 +1057,7 @@ export function SeatingChart({
               unseated={unseated}
               search={search}
               onSearch={setSearch}
+              onDragStart={beginPersonDrag}
             />
           )}
         </div>
@@ -888,6 +1071,7 @@ function FloorObjectShape({
   obj,
   isSelected,
   isCrowded,
+  dropSeat,
   assignments,
   occupantBySeat,
   onPointerDown,
@@ -897,6 +1081,8 @@ function FloorObjectShape({
   obj: FloorObject;
   isSelected: boolean;
   isCrowded: boolean;
+  /** Seat number under a drag, "table" for the table body, null for neither. */
+  dropSeat: number | "table" | null;
   assignments: SeatedGuest[];
   occupantBySeat: Map<string, AttendingGuest>;
   onPointerDown: (e: React.PointerEvent) => void;
@@ -910,7 +1096,14 @@ function FloorObjectShape({
   const width = obj.width_ft ?? HEAD_TABLE_WIDTH_FT;
   const depth = obj.height_ft ?? HEAD_TABLE_DEPTH_FT;
 
-  const stroke = isCrowded ? "#C2410C" : isSelected ? "#5C6B4E" : "#C5D0B3";
+  const isDropTarget = dropSeat !== null;
+  const stroke = isDropTarget
+    ? "#D9739F"
+    : isCrowded
+      ? "#C2410C"
+      : isSelected
+        ? "#5C6B4E"
+        : "#C5D0B3";
 
   return (
     <g
@@ -942,10 +1135,22 @@ function FloorObjectShape({
             <circle
               cx={offset.x}
               cy={offset.y}
-              r="0.72"
-              fill={occupant ? "#F8BBDB" : "#FAF5EE"}
-              stroke={occupant ? "#5C6B4E" : "#C5D0B3"}
-              strokeWidth="0.09"
+              r={dropSeat === seatNumber ? "0.9" : "0.72"}
+              fill={
+                dropSeat === seatNumber
+                  ? "#D9739F"
+                  : occupant
+                    ? "#F8BBDB"
+                    : "#FAF5EE"
+              }
+              stroke={
+                dropSeat === seatNumber
+                  ? "#5C6B4E"
+                  : occupant
+                    ? "#5C6B4E"
+                    : "#C5D0B3"
+              }
+              strokeWidth={dropSeat === seatNumber ? "0.16" : "0.09"}
             />
             {occupant && (
               <text
@@ -977,7 +1182,7 @@ function FloorObjectShape({
           r={diameter / 2}
           fill="#FFFFFF"
           stroke={stroke}
-          strokeWidth={isSelected || isCrowded ? "0.28" : "0.16"}
+          strokeWidth={isDropTarget || isSelected || isCrowded ? "0.32" : "0.16"}
         />
       ) : (
         <rect
@@ -988,7 +1193,7 @@ function FloorObjectShape({
           rx="0.3"
           fill="#FFFFFF"
           stroke={stroke}
-          strokeWidth={isSelected ? "0.28" : "0.16"}
+          strokeWidth={isDropTarget || isSelected ? "0.32" : "0.16"}
         />
       )}
 
@@ -1044,6 +1249,8 @@ function TablePanel({
   onAssign,
   onUnassign,
   onSeatParty,
+  onDragStart,
+  didDrag,
   onUpdate,
   onClear,
   onDelete,
@@ -1061,6 +1268,8 @@ function TablePanel({
   onAssign: (guest: AttendingGuest) => void;
   onUnassign: (guestId: string) => void;
   onSeatParty: (partyId: string) => void;
+  onDragStart: (e: React.PointerEvent, payload: DragPayload) => void;
+  didDrag: () => boolean;
   onUpdate: (patch: {
     label?: string;
     internal_name?: string | null;
@@ -1328,9 +1537,20 @@ function TablePanel({
                     party.guests.length <= freeSeatCount && (
                       <button
                         type="button"
-                        onClick={() => onSeatParty(partyId)}
+                        onPointerDown={(e) =>
+                          onDragStart(e, {
+                            kind: "party",
+                            partyId,
+                            name: party.name,
+                            count: party.guests.length,
+                          })
+                        }
+                        onClick={() => {
+                          if (didDrag()) return;
+                          onSeatParty(partyId);
+                        }}
                         disabled={isPending}
-                        className="text-xs text-deep-sage hover:text-pink shrink-0 transition-colors"
+                        className="text-xs text-deep-sage hover:text-pink shrink-0 transition-colors touch-none cursor-grab"
                       >
                         Seat all {party.guests.length}
                       </button>
@@ -1340,9 +1560,15 @@ function TablePanel({
                   <button
                     key={g.id}
                     type="button"
-                    onClick={() => onAssign(g)}
+                    onPointerDown={(e) =>
+                      onDragStart(e, { kind: "guest", guest: g })
+                    }
+                    onClick={() => {
+                      if (didDrag()) return;
+                      onAssign(g);
+                    }}
                     disabled={isPending || freeSeatCount === 0}
-                    className="w-full text-left px-2 py-1 rounded text-sm text-dark hover:bg-pink/15 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
+                    className="w-full text-left px-2 py-1 rounded text-sm text-dark hover:bg-pink/15 disabled:opacity-40 disabled:hover:bg-transparent transition-colors touch-none cursor-grab"
                   >
                     {g.first_name} {g.last_name}
                   </button>
@@ -1488,10 +1714,12 @@ function UnseatedPanel({
   unseated,
   search,
   onSearch,
+  onDragStart,
 }: {
   unseated: AttendingGuest[];
   search: string;
   onSearch: (v: string) => void;
+  onDragStart: (e: React.PointerEvent, payload: DragPayload) => void;
 }) {
   const filtered = search.trim()
     ? unseated.filter((g) =>
@@ -1517,7 +1745,8 @@ function UnseatedPanel({
         Not seated yet ({unseated.length})
       </h3>
       <p className="text-xs text-dark/50 mb-3">
-        Click a table on the floor plan to start seating people at it.
+        Drag a name onto a seat, or a party name onto a table. Or click a
+        table to seat people from its panel.
       </p>
       <input
         value={search}
@@ -1535,9 +1764,29 @@ function UnseatedPanel({
         ) : (
           parties.map(([partyId, party]) => (
             <div key={partyId}>
-              <p className="text-xs text-dark/50">{party.name}</p>
+              <p
+                onPointerDown={(e) =>
+                  onDragStart(e, {
+                    kind: "party",
+                    partyId,
+                    name: party.name,
+                    count: party.guests.length,
+                  })
+                }
+                className="text-xs text-dark/50 touch-none cursor-grab hover:text-deep-sage transition-colors"
+                title={`Drag the whole party (${party.guests.length}) onto a table`}
+              >
+                {party.name}
+              </p>
               {party.guests.map((g) => (
-                <p key={g.id} className="text-sm text-dark pl-2">
+                <p
+                  key={g.id}
+                  onPointerDown={(e) =>
+                    onDragStart(e, { kind: "guest", guest: g })
+                  }
+                  className="text-sm text-dark pl-2 touch-none cursor-grab hover:bg-pink/10 rounded transition-colors"
+                  title="Drag onto a seat or table"
+                >
                   {g.first_name} {g.last_name}
                 </p>
               ))}

@@ -72,38 +72,16 @@ export async function restoreFloorPlan(
   supabase: Supabase,
   state: FloorPlanState
 ): Promise<{ error?: string }> {
-  // PostgREST refuses an unfiltered delete, hence the always-true predicate.
-  const { error: deleteError } = await supabase
-    .from("floor_plan_objects")
-    .delete()
-    .not("id", "is", null);
+  // Delegated to a Postgres function so the wipe and the re-insert are ONE
+  // transaction. Doing it as separate PostgREST calls meant a failure between
+  // them left the floor plan empty with the history pointer unmoved, which is
+  // how a real layout of 23 tables ended up showing as zero. See
+  // 20260802000004_atomic_restore.sql.
+  const { error } = await supabase.rpc("restore_floor_plan", {
+    snapshot: state,
+  });
 
-  if (deleteError) return { error: deleteError.message };
-
-  if (state.objects.length > 0) {
-    const { error } = await supabase
-      .from("floor_plan_objects")
-      .insert(state.objects);
-    if (error) return { error: error.message };
-  }
-
-  if (state.assignments.length > 0) {
-    // A guest can be deleted between snapshot and restore. Their assignment
-    // would violate the foreign key and fail the whole restore, so drop any
-    // that no longer point at a real guest.
-    const { data: guests } = await supabase.from("guests").select("id");
-    const liveGuestIds = new Set((guests ?? []).map((g) => g.id));
-
-    const valid = state.assignments.filter((a) =>
-      liveGuestIds.has(a.guest_id as string)
-    );
-
-    if (valid.length > 0) {
-      const { error } = await supabase.from("seat_assignments").insert(valid);
-      if (error) return { error: error.message };
-    }
-  }
-
+  if (error) return { error: error.message };
   return {};
 }
 
