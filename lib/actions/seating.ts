@@ -10,9 +10,11 @@ import {
 } from "@/lib/seating-history-core";
 import {
   DEFAULT_SEAT_COUNT,
+  DEFAULT_HEAD_TABLE_SEATS,
   HEAD_TABLE_DEPTH_FT,
   HEAD_TABLE_WIDTH_FT,
   ROUND_TABLE_DIAMETER_FT,
+  headTableWidthFor,
   TENT_DEPTH_FT,
   TENT_WIDTH_FT,
   autoLayoutPositions,
@@ -128,7 +130,7 @@ export async function addHeadTable(): Promise<MutationResult> {
       label: "Head Table",
       x_ft: slot.x,
       y_ft: slot.y,
-      seat_count: 2,
+      seat_count: DEFAULT_HEAD_TABLE_SEATS,
       width_ft: HEAD_TABLE_WIDTH_FT,
       height_ft: HEAD_TABLE_DEPTH_FT,
       sort_order: 0,
@@ -250,7 +252,7 @@ export async function updateObject(
 
     const { data: existing } = await supabase
       .from("floor_plan_objects")
-      .select("label")
+      .select("label, kind")
       .eq("id", id)
       .maybeSingle();
 
@@ -291,6 +293,14 @@ export async function updateObject(
       }
 
       update.seat_count = patch.seat_count;
+
+      // A head table's width is derived from its seat count, so widen or
+      // narrow it to match. Without this, adding seats packs more people
+      // into the same physical table and the plan stops being to scale.
+      if (existing?.kind === "head_table") {
+        update.width_ft = headTableWidthFor(patch.seat_count);
+      }
+
       changes.push(`set ${name} to ${patch.seat_count} seats`);
     }
 

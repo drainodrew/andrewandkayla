@@ -30,8 +30,34 @@ export const DEFAULT_SEAT_COUNT = 8;
 /** The squeeze option. 9 at a 60" round is tight but survivable. */
 export const MAX_SEAT_COUNT = 9;
 
-export const HEAD_TABLE_WIDTH_FT = 8;
 export const HEAD_TABLE_DEPTH_FT = 2.5;
+
+/**
+ * Elbow room per person along a head table. Banquet rentals assume 24" per
+ * seat on a rectangular table, which is why a 6ft table is sold as seating 3
+ * per side.
+ */
+export const HEAD_TABLE_SEAT_PITCH_FT = 2;
+
+export const MIN_HEAD_TABLE_SEATS = 1;
+/** Matches the seat_count check constraint on floor_plan_objects. */
+export const MAX_HEAD_TABLE_SEATS = 12;
+
+/**
+ * A head table's width is derived from its seat count, not set independently.
+ *
+ * Otherwise you get 12 people crammed along a fixed 8ft table, which renders
+ * as overlapping seat markers and, worse, would be wrong if anyone measured
+ * off the plan. Guests sit along one side only (facing the room), so the
+ * table grows one pitch per seat.
+ */
+export function headTableWidthFor(seatCount: number): number {
+  return Math.max(4, seatCount * HEAD_TABLE_SEAT_PITCH_FT);
+}
+
+/** Default sweetheart table: just the two of you. */
+export const DEFAULT_HEAD_TABLE_SEATS = 2;
+export const HEAD_TABLE_WIDTH_FT = headTableWidthFor(DEFAULT_HEAD_TABLE_SEATS);
 
 /** Drag snapping. Half a foot is fine enough to look deliberate. */
 export const SNAP_FT = 0.5;
@@ -132,27 +158,39 @@ export function snapAndClamp(value: number, min: number, max: number): number {
 }
 
 /**
- * Radius of the space an object actually consumes, including pulled-out
- * chairs and walking room. Rectangles are approximated by their circumscribed
- * circle, which is conservative (it over-reserves the corners) but that errs
- * toward flagging a collision rather than missing one.
+ * Half-extents of the space an object consumes, including pulled-out chairs
+ * and walking room.
+ *
+ * Modelled as a box rather than a circle. A circumscribed circle is fine for
+ * a round table but badly wrong for a long head table: a 24ft-wide one would
+ * claim a ~14ft radius and flag most of the tent as crowded, training you to
+ * ignore the warning. Rotation is ignored (this is axis-aligned), which is
+ * acceptable because the warning is advisory, not a constraint.
  */
-export function effectiveRadiusFt(obj: FloorObject): number {
+export function clearanceHalfExtents(obj: FloorObject): {
+  x: number;
+  y: number;
+} {
   if (obj.kind === "round_table") {
-    return (obj.diameter_ft ?? ROUND_TABLE_DIAMETER_FT) / 2 + ROUND_TABLE_CLEARANCE_FT;
+    const r = (obj.diameter_ft ?? ROUND_TABLE_DIAMETER_FT) / 2;
+    return {
+      x: r + ROUND_TABLE_CLEARANCE_FT,
+      y: r + ROUND_TABLE_CLEARANCE_FT,
+    };
   }
-  const w = obj.width_ft ?? HEAD_TABLE_WIDTH_FT;
-  const d = obj.height_ft ?? HEAD_TABLE_DEPTH_FT;
-  return Math.sqrt(w * w + d * d) / 2 + ROUND_TABLE_CLEARANCE_FT;
+  return {
+    x: (obj.width_ft ?? HEAD_TABLE_WIDTH_FT) / 2 + ROUND_TABLE_CLEARANCE_FT,
+    y: (obj.height_ft ?? HEAD_TABLE_DEPTH_FT) / 2 + ROUND_TABLE_CLEARANCE_FT,
+  };
 }
 
 /**
- * Objects sitting closer than their combined footprints, i.e. guests would be
- * back to back with no room to walk. Surfaced in the UI in red rather than
- * blocked, because sometimes you genuinely want two tables pushed together.
+ * Objects whose clearance boxes overlap, i.e. guests would be back to back
+ * with no room to walk. Surfaced in red rather than blocked, because
+ * sometimes you genuinely want two tables pushed together.
  *
- * Covers the head table too: its default spot is the most likely thing to
- * collide with a generated grid of round tables.
+ * Two round tables exactly one footprint (10ft) apart do NOT count as
+ * crowded, so the generated grid starts clean.
  */
 export function findCrowdedPairs(objects: FloorObject[]): Set<string> {
   const crowded = new Set<string>();
@@ -160,10 +198,11 @@ export function findCrowdedPairs(objects: FloorObject[]): Set<string> {
     for (let j = i + 1; j < objects.length; j++) {
       const a = objects[i];
       const b = objects[j];
-      const dx = a.x_ft - b.x_ft;
-      const dy = a.y_ft - b.y_ft;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-      if (distance < effectiveRadiusFt(a) + effectiveRadiusFt(b)) {
+      const ea = clearanceHalfExtents(a);
+      const eb = clearanceHalfExtents(b);
+      const overlapsX = Math.abs(a.x_ft - b.x_ft) < ea.x + eb.x;
+      const overlapsY = Math.abs(a.y_ft - b.y_ft) < ea.y + eb.y;
+      if (overlapsX && overlapsY) {
         crowded.add(a.id);
         crowded.add(b.id);
       }

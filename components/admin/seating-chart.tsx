@@ -19,6 +19,9 @@ import {
   DEFAULT_SEAT_COUNT,
   MAX_SEAT_COUNT,
   MAX_ROUND_TABLES,
+  MIN_HEAD_TABLE_SEATS,
+  MAX_HEAD_TABLE_SEATS,
+  headTableWidthFor,
   seatOffsetsFor,
   snapAndClamp,
   findCrowdedPairs,
@@ -179,11 +182,21 @@ export function SeatingChart({
     return { x: point.x, y: point.y };
   }
 
-  function halfExtent(obj: FloorObject) {
+  /**
+   * Half-extents per axis, used to keep a dragged object inside the tent.
+   * Per-axis rather than a single number: a 24ft-wide head table is only
+   * 2.5ft deep, and clamping its vertical range by its width would lock it
+   * out of most of the tent.
+   */
+  function halfExtents(obj: FloorObject) {
     if (obj.kind === "round_table") {
-      return (obj.diameter_ft ?? ROUND_TABLE_DIAMETER_FT) / 2;
+      const r = (obj.diameter_ft ?? ROUND_TABLE_DIAMETER_FT) / 2;
+      return { x: r, y: r };
     }
-    return Math.max(obj.width_ft ?? 0, obj.height_ft ?? 0) / 2;
+    return {
+      x: (obj.width_ft ?? 0) / 2,
+      y: (obj.height_ft ?? 0) / 2,
+    };
   }
 
   function handlePointerDown(e: React.PointerEvent, obj: FloorObject) {
@@ -205,9 +218,9 @@ export function SeatingChart({
     const drag = dragRef.current;
     if (!drag || drag.id !== obj.id) return;
     const p = clientToFeet(e.clientX, e.clientY);
-    const half = halfExtent(obj);
-    const x = snapAndClamp(p.x - drag.dx, half, TENT_WIDTH_FT - half);
-    const y = snapAndClamp(p.y - drag.dy, half, TENT_DEPTH_FT - half);
+    const half = halfExtents(obj);
+    const x = snapAndClamp(p.x - drag.dx, half.x, TENT_WIDTH_FT - half.x);
+    const y = snapAndClamp(p.y - drag.dy, half.y, TENT_DEPTH_FT - half.y);
     setLocalObjects((prev) =>
       prev.map((o) => (o.id === obj.id ? { ...o, x_ft: x, y_ft: y } : o))
     );
@@ -313,15 +326,58 @@ export function SeatingChart({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [historyState.canUndo, historyState.canRedo, handleUndo, handleRedo]);
 
-  // Escape leaves the expanded floor plan.
+  // Escape leaves the expanded floor plan, or clears the selection.
   useEffect(() => {
-    if (!expanded) return;
     function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setExpanded(false);
+      if (e.key !== "Escape") return;
+      if (expanded) setExpanded(false);
+      else setSelectedId(null);
     }
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [expanded]);
+
+  // Delete/Backspace removes the selected table.
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key !== "Delete" && e.key !== "Backspace") return;
+      if (!selectedId) return;
+
+      // Backspace is "delete a character" while typing, and on some browsers
+      // it still triggers back-navigation. Never hijack it inside a field.
+      const target = e.target as HTMLElement | null;
+      if (
+        target &&
+        (target.tagName === "INPUT" ||
+          target.tagName === "TEXTAREA" ||
+          target.isContentEditable)
+      ) {
+        return;
+      }
+
+      const table = localObjects.find((o) => o.id === selectedId);
+      if (!table) return;
+
+      e.preventDefault();
+
+      // Deleting a seated table throws those guests back into the unseated
+      // pile, which is a lot of work to lose to a stray keypress. Undo would
+      // recover it, but a confirm is cheaper than discovering it later.
+      const seated = (assignmentsByObject.get(selectedId) ?? []).length;
+      if (seated > 0) {
+        const ok = window.confirm(
+          `Delete ${table.label}? ${seated} ${seated === 1 ? "person" : "people"} seated there will go back to unseated.`
+        );
+        if (!ok) return;
+      }
+
+      setSelectedId(null);
+      run(() => deleteObject(table.id));
+    }
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [selectedId, localObjects, assignmentsByObject, run]);
 
   function firstFreeSeat(obj: FloorObject): number | null {
     const taken = new Set(
@@ -891,7 +947,7 @@ function TablePanel({
           />
         </div>
 
-        {obj.kind === "round_table" && (
+        {obj.kind === "round_table" ? (
           <div>
             <label className="text-xs text-dark/50 block mb-1">Seats</label>
             <div className="flex gap-2">
@@ -914,6 +970,48 @@ function TablePanel({
                 </button>
               ))}
             </div>
+          </div>
+        ) : (
+          // Head tables run anywhere from a sweetheart table for two to the
+          // whole wedding party, so this is a stepper rather than a couple of
+          // preset buttons.
+          <div>
+            <label className="text-xs text-dark/50 block mb-1">Seats</label>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() =>
+                  onUpdate({ seat_count: obj.seat_count - 1 })
+                }
+                disabled={isPending || obj.seat_count <= MIN_HEAD_TABLE_SEATS}
+                aria-label="Remove a seat"
+                className="w-8 h-8 rounded-lg border border-sage/50 text-dark/70 hover:bg-sage/10 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
+              >
+                &minus;
+              </button>
+              <span className="w-8 text-center text-sm font-medium text-dark">
+                {obj.seat_count}
+              </span>
+              <button
+                type="button"
+                onClick={() =>
+                  onUpdate({ seat_count: obj.seat_count + 1 })
+                }
+                disabled={isPending || obj.seat_count >= MAX_HEAD_TABLE_SEATS}
+                aria-label="Add a seat"
+                className="w-8 h-8 rounded-lg border border-sage/50 text-dark/70 hover:bg-sage/10 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
+              >
+                +
+              </button>
+              <span className="text-xs text-dark/50 ml-1">
+                {headTableWidthFor(obj.seat_count)}&prime; table
+              </span>
+            </div>
+            {obj.seat_count >= MAX_HEAD_TABLE_SEATS && (
+              <p className="text-xs text-dark/40 mt-1">
+                Max {MAX_HEAD_TABLE_SEATS}. Add a second head table for more.
+              </p>
+            )}
           </div>
         )}
       </div>
