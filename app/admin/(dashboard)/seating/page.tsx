@@ -1,6 +1,6 @@
 import { createServiceClient } from "@/lib/supabase/server";
 import { SeatingChart } from "@/components/admin/seating-chart";
-import { getHistoryState } from "@/lib/actions/seating-history";
+import { buildHistoryState } from "@/lib/seating-history-core";
 import type {
   AttendingGuest,
   FloorObject,
@@ -58,7 +58,10 @@ export default async function AdminSeatingPage() {
         .eq("status", "attending"),
       supabase.from("guests").select("id, party_id, first_name, last_name"),
       supabase.from("parties").select("id, invite_name"),
-      getHistoryState(),
+      // buildHistoryState, not the getHistoryState server action: the action
+      // re-runs requireAdmin (an auth round trip plus an admin_users lookup)
+      // which this render has already passed via the (dashboard) layout guard.
+      buildHistoryState(supabase),
     ]);
 
   const attendingIds = new Set((rsvpsResult.data ?? []).map((r) => r.guest_id));

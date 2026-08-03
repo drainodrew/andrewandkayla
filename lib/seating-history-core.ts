@@ -41,26 +41,6 @@ const EMPTY_HISTORY: HistoryState = {
 
 export type Supabase = ReturnType<typeof createServiceClient>;
 
-/** Read the entire floor plan as a snapshot payload. */
-async function readFloorPlan(supabase: Supabase): Promise<FloorPlanState> {
-  const [objectsResult, assignmentsResult] = await Promise.all([
-    supabase
-      .from("floor_plan_objects")
-      .select(
-        "id, kind, label, internal_name, x_ft, y_ft, rotation_deg, seat_count, diameter_ft, width_ft, height_ft, sort_order"
-      )
-      .order("sort_order"),
-    supabase
-      .from("seat_assignments")
-      .select("guest_id, object_id, seat_number"),
-  ]);
-
-  return {
-    objects: objectsResult.data ?? [],
-    assignments: assignmentsResult.data ?? [],
-  };
-}
-
 /**
  * Replace the live floor plan with a snapshot.
  *
@@ -135,84 +115,26 @@ export async function captureSnapshot(
 ): Promise<HistoryState> {
   const supabase = createServiceClient();
 
-  const { data: pointer } = await supabase
-    .from("seating_history_pointer")
-    .select("current_seq")
-    .eq("id", true)
-    .maybeSingle();
+  // ONE round trip. This used to be seven separate queries (read pointer,
+  // truncate the redo branch, read objects, read assignments, insert, move
+  // the pointer, prune) and that latency was most of the 2-5s every seating
+  // edit took. It is all set-based work, so it belongs in the database.
+  const { data, error } = await supabase.rpc("capture_seating_snapshot", {
+    p_label: label,
+    p_created_by: createdBy ?? null,
+    p_max_snapshots: MAX_SNAPSHOTS,
+  });
 
-  const currentSeq = pointer?.current_seq ?? null;
-
-  // Discard the abandoned redo branch.
-  if (currentSeq !== null) {
-    await supabase.from("seating_snapshots").delete().gt("seq", currentSeq);
-  } else {
-    // Pointer at the beginning: everything recorded is redo-future.
-    await supabase.from("seating_snapshots").delete().not("seq", "is", null);
-  }
-
-  const state = await readFloorPlan(supabase);
-
-  const { data: inserted, error } = await supabase
-    .from("seating_snapshots")
-    .insert({ state, label, created_by: createdBy ?? null })
-    .select("seq")
-    .single();
-
-  if (error || !inserted) return buildHistoryState(supabase);
-
-  await supabase
-    .from("seating_history_pointer")
-    .update({ current_seq: inserted.seq, updated_at: new Date().toISOString() })
-    .eq("id", true);
-
-  // Prune the oldest entries beyond the cap.
-  const { data: all } = await supabase
-    .from("seating_snapshots")
-    .select("seq")
-    .order("seq", { ascending: false });
-
-  if (all && all.length > MAX_SNAPSHOTS) {
-    const cutoff = all[MAX_SNAPSHOTS - 1].seq;
-    await supabase.from("seating_snapshots").delete().lt("seq", cutoff);
-  }
-
-  return buildHistoryState(supabase);
+  if (error || !data) return buildHistoryState(supabase);
+  return data as HistoryState;
 }
 
-/**
- * Seed a baseline snapshot if history is empty, so the very first edit has
- * something to undo back to. Without this, edit #1 would be unundoable.
- */
 export async function ensureBaseline(createdBy?: string): Promise<void> {
   const supabase = createServiceClient();
-
-  const { count } = await supabase
-    .from("seating_snapshots")
-    .select("seq", { count: "exact", head: true });
-
-  if ((count ?? 0) > 0) return;
-
-  const state = await readFloorPlan(supabase);
-
-  const { data: inserted } = await supabase
-    .from("seating_snapshots")
-    .insert({
-      state,
-      label: "Starting layout",
-      created_by: createdBy ?? null,
-    })
-    .select("seq")
-    .single();
-
-  if (inserted) {
-    await supabase
-      .from("seating_history_pointer")
-      .update({
-        current_seq: inserted.seq,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", true);
-  }
+  // Also one round trip; the emptiness check, insert and pointer update all
+  // happen inside the function.
+  await supabase.rpc("ensure_seating_baseline", {
+    p_created_by: createdBy ?? null,
+  });
 }
 
