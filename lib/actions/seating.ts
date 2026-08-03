@@ -489,6 +489,13 @@ export async function deleteObject(id: string): Promise<MutationResult> {
  * Upserts on guest_id (UNIQUE), so seating someone already seated elsewhere
  * moves them instead of double-booking.
  */
+
+/**
+ * Seat changes skip revalidation: the client applies them optimistically and
+ * a server re-render racing that would make seats flicker between the old and
+ * new value. The returned history keeps the undo button honest without a
+ * refetch, and undo/redo still revalidate so a restore always resyncs.
+ */
 export async function assignSeat(
   guestId: string,
   objectId: string,
@@ -534,7 +541,7 @@ export async function assignSeat(
 
     const who = guest ? `${guest.first_name} ${guest.last_name}` : "guest";
     return { label: `Seat ${who} at ${object?.label ?? "table"}` };
-  });
+  }, { revalidate: false });
 }
 
 export async function unassignSeat(guestId: string): Promise<MutationResult> {
@@ -554,7 +561,7 @@ export async function unassignSeat(guestId: string): Promise<MutationResult> {
 
     const who = guest ? `${guest.first_name} ${guest.last_name}` : "guest";
     return { label: `Unseat ${who}` };
-  });
+  }, { revalidate: false });
 }
 
 /**
@@ -637,7 +644,7 @@ export async function seatPartyAtTable(
     return {
       label: `Seat ${partyResult.data?.invite_name ?? "party"} at ${objectResult.data.label}`,
     };
-  });
+  }, { revalidate: false });
 }
 
 /** Empty a table without deleting it. */
@@ -656,5 +663,5 @@ export async function clearTable(objectId: string): Promise<MutationResult> {
 
     if (error) return { error: error.message };
     return { label: `Clear ${object?.label ?? "table"}` };
-  });
+  }, { revalidate: false });
 }

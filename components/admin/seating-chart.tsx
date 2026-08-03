@@ -88,6 +88,20 @@ export function SeatingChart({
   // Local copy so dragging is instant. Server is the source of truth for
   // everything else; positions sync back on the next revalidate.
   const [localObjects, setLocalObjects] = useState(objects);
+  // Seat assignments are applied locally the moment you click and reconciled
+  // with the server afterwards. Seating 209 people is hundreds of clicks; at
+  // ~2s of round-trip each that was the difference between a tool you can use
+  // and one you fight.
+  const [localAssignments, setLocalAssignments] = useState(assignments);
+  /**
+   * Synchronous mirror of localAssignments.
+   *
+   * React state does not update between synchronous clicks, so five rapid
+   * clicks would all read the same "first free seat" from the same stale
+   * render and collide on it. This ref is written immediately, so each click
+   * sees the seats the previous ones just took.
+   */
+  const assignmentsRef = useRef<SeatedGuest[]>(assignments);
   // A Set, not a single id: shift-click builds a multi-selection, and the
   // whole selection drags together.
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -132,6 +146,17 @@ export function SeatingChart({
     setLocalObjects(objects);
   }, [objects]);
 
+  useEffect(() => {
+    assignmentsRef.current = assignments;
+    setLocalAssignments(assignments);
+  }, [assignments]);
+
+  /** Write both the ref (immediately) and the state (for rendering). */
+  const applyLocal = useCallback((next: SeatedGuest[]) => {
+    assignmentsRef.current = next;
+    setLocalAssignments(next);
+  }, []);
+
   // Clear the pending "Saved" fade timer if the component unmounts mid-flight.
   useEffect(() => {
     return () => {
@@ -145,31 +170,31 @@ export function SeatingChart({
   );
 
   const assignmentByGuest = useMemo(
-    () => new Map(assignments.map((a) => [a.guest_id, a])),
-    [assignments]
+    () => new Map(localAssignments.map((a) => [a.guest_id, a])),
+    [localAssignments]
   );
 
   /** objectId -> assignments at that object */
   const assignmentsByObject = useMemo(() => {
     const map = new Map<string, SeatedGuest[]>();
-    for (const a of assignments) {
+    for (const a of localAssignments) {
       const list = map.get(a.object_id) ?? [];
       list.push(a);
       map.set(a.object_id, list);
     }
     return map;
-  }, [assignments]);
+  }, [localAssignments]);
 
   /** "objectId:seatNumber" -> guest sitting there */
   const occupantBySeat = useMemo(() => {
     const map = new Map<string, AttendingGuest>();
-    for (const a of assignments) {
+    for (const a of localAssignments) {
       if (a.seat_number === null) continue;
       const guest = guestById.get(a.guest_id);
       if (guest) map.set(`${a.object_id}:${a.seat_number}`, guest);
     }
     return map;
-  }, [assignments, guestById]);
+  }, [localAssignments, guestById]);
 
   const unseated = useMemo(
     () => guests.filter((g) => !assignmentByGuest.has(g.id)),
@@ -199,7 +224,7 @@ export function SeatingChart({
    */
   const splitParties = useMemo(() => {
     const tablesByParty = new Map<string, Set<string>>();
-    for (const a of assignments) {
+    for (const a of localAssignments) {
       const guest = guestById.get(a.guest_id);
       if (!guest) continue;
       const set = tablesByParty.get(guest.party_id) ?? new Set<string>();
@@ -209,7 +234,7 @@ export function SeatingChart({
     return [...tablesByParty.entries()]
       .filter(([, tables]) => tables.size > 1)
       .map(([partyId]) => partyId);
-  }, [assignments, guestById]);
+  }, [localAssignments, guestById]);
 
   // ---- drag handling -------------------------------------------------
 
@@ -385,6 +410,110 @@ export function SeatingChart({
     []
   );
 
+  /**
+   * Apply a seat change locally straight away, then send it.
+   *
+   * The server stays the source of truth: if it rejects the change we put the
+   * previous assignments back and surface the error, so an optimistic UI can
+   * never quietly disagree with the database. The actions these call skip
+   * revalidation, otherwise the refetch would race the local state and make
+   * seats flicker between old and new.
+   */
+  const optimistic = useCallback(
+    (
+      compute: (prev: SeatedGuest[]) => SeatedGuest[],
+      action: () => Promise<MutationResult>
+    ) => {
+      applyLocal(compute(assignmentsRef.current));
+
+      setError(null);
+      setSaveStatus("saving");
+      if (savedTimerRef.current) clearTimeout(savedTimerRef.current);
+
+      startTransition(async () => {
+        try {
+          const result = await action();
+          if (result.error) {
+            setError(result.error);
+            setSaveStatus("error");
+            // Resync from the server rather than restoring a local snapshot:
+            // other writes may have landed in the meantime, and rolling back
+            // to a stale copy would clobber them.
+            router.refresh();
+            return;
+          }
+          if (result.history) setHistoryState(result.history);
+          setSaveStatus("saved");
+          savedTimerRef.current = setTimeout(() => setSaveStatus("idle"), 2000);
+        } catch {
+          setError(
+            "Couldn't reach the server. Your last change may not have saved."
+          );
+          setSaveStatus("error");
+          router.refresh();
+        }
+      });
+    },
+    [applyLocal, router]
+  );
+
+  /** Put a guest in a seat locally, removing any seat they already held. */
+  function withGuestSeated(
+    prev: SeatedGuest[],
+    guestId: string,
+    objectId: string,
+    seatNumber: number | null
+  ): SeatedGuest[] {
+    return [
+      ...prev.filter((a) => a.guest_id !== guestId),
+      { guest_id: guestId, object_id: objectId, seat_number: seatNumber },
+    ];
+  }
+
+  /** Lowest free chairs at a table, computed from local state. */
+  function freeSeatsAt(obj: FloorObject, from: SeatedGuest[]): number[] {
+    const taken = new Set(
+      from
+        .filter((a) => a.object_id === obj.id)
+        .map((a) => a.seat_number)
+        .filter((n): n is number => n !== null)
+    );
+    const free: number[] = [];
+    for (let n = 1; n <= obj.seat_count; n++) if (!taken.has(n)) free.push(n);
+    return free;
+  }
+
+  function handleSeatParty(partyId: string, obj: FloorObject) {
+    const seatedIds = new Set(assignmentsRef.current.map((a) => a.guest_id));
+    const toSeat = guests.filter(
+      (g) => g.party_id === partyId && !seatedIds.has(g.id)
+    );
+    if (toSeat.length === 0) {
+      setError("Everyone in that party is already seated.");
+      return;
+    }
+    const free = freeSeatsAt(obj, assignmentsRef.current);
+    if (free.length < toSeat.length) {
+      // Checked locally as well as on the server so the seats never visibly
+      // fill and then snap back.
+      setError(
+        `Only ${free.length} seat${free.length === 1 ? "" : "s"} free at ${obj.label}, but ${toSeat.length} to seat.`
+      );
+      return;
+    }
+
+    optimistic(
+      (prev) => {
+        let next = prev;
+        toSeat.forEach((g, i) => {
+          next = withGuestSeated(next, g.id, obj.id, free[i]);
+        });
+        return next;
+      },
+      () => seatPartyAtTable(partyId, obj.id)
+    );
+  }
+
   const handleUndo = useCallback(() => {
     run(async () => {
       const result = await undoSeating();
@@ -494,16 +623,19 @@ export function SeatingChart({
       if (payload.kind === "party") {
         // A party fills consecutive free chairs; a specific chair is
         // meaningless for a group, so the seat under the cursor is ignored.
-        run(() => seatPartyAtTable(payload.partyId, obj.id));
+        handleSeatParty(payload.partyId, obj);
         return;
       }
 
-      const seat = target.seatNumber ?? firstFreeSeat(obj);
-      if (seat === null) {
+      const seat = target.seatNumber ?? freeSeatsAt(obj, assignmentsRef.current)[0];
+      if (seat === undefined || seat === null) {
         setError(`${obj.label} is full.`);
         return;
       }
-      run(() => assignSeat(payload.guest.id, obj.id, seat));
+      optimistic(
+        (prev) => withGuestSeated(prev, payload.guest.id, obj.id, seat),
+        () => assignSeat(payload.guest.id, obj.id, seat)
+      );
     }
 
     // Cancel cleanly if the OS takes the pointer away mid-drag.
@@ -642,32 +774,23 @@ export function SeatingChart({
     setPendingDrag(payload);
   }
 
-  function firstFreeSeat(obj: FloorObject): number | null {
-    const taken = new Set(
-      (assignmentsByObject.get(obj.id) ?? [])
-        .map((a) => a.seat_number)
-        .filter((n): n is number => n !== null)
-    );
-    for (let n = 1; n <= obj.seat_count; n++) {
-      if (!taken.has(n)) return n;
-    }
-    return null;
-  }
 
   function handleAssign(guest: AttendingGuest) {
     if (!selected) return;
-    const seat = targetSeat ?? firstFreeSeat(selected);
-    if (seat === null) {
+    // From the ref, so back-to-back clicks each get the next chair.
+    const seat = targetSeat ?? freeSeatsAt(selected, assignmentsRef.current)[0];
+    if (seat === undefined || seat === null) {
       setError(`${selected.label} is full.`);
       return;
     }
-    run(async () => {
-      const result = await assignSeat(guest.id, selected.id, seat);
-      // Release the explicit target so the next pick falls through to the
-      // lowest empty chair. Lets you seat a whole table by clicking names.
-      if (!result.error) setTargetSeat(null);
-      return result;
-    });
+    // Release the explicit target so the next pick falls through to the lowest
+    // empty chair. Lets you seat a whole table by clicking names in a row,
+    // each one landing instantly off local state.
+    setTargetSeat(null);
+    optimistic(
+      (prev) => withGuestSeated(prev, guest.id, selected.id, seat),
+      () => assignSeat(guest.id, selected.id, seat)
+    );
   }
 
   function exportCsv() {
@@ -1016,15 +1139,18 @@ export function SeatingChart({
                 )
               }
               onClear={() => {
-                const ids = selectedObjects.map((o) => o.id);
-                run(async () => {
-                  // No bulk clear action: clearing is rare enough that reusing
-                  // the single-table path is fine. Only the last result's
-                  // history matters, since each one snapshots.
-                  let last: MutationResult = {};
-                  for (const id of ids) last = await clearTable(id);
-                  return last;
-                });
+                const ids = new Set(selectedObjects.map((o) => o.id));
+                optimistic(
+                  (prev) => prev.filter((a) => !ids.has(a.object_id)),
+                  async () => {
+                    // No bulk clear action: clearing is rare enough that
+                    // reusing the single-table path is fine. Only the last
+                    // result matters, since each one snapshots.
+                    let last: MutationResult = {};
+                    for (const id of ids) last = await clearTable(id);
+                    return last;
+                  }
+                );
               }}
               onDelete={() => {
                 const ids = selectedObjects.map((o) => o.id);
@@ -1056,14 +1182,22 @@ export function SeatingChart({
               targetSeat={targetSeat}
               onTargetSeat={setTargetSeat}
               onAssign={handleAssign}
-              onUnassign={(guestId) => run(() => unassignSeat(guestId))}
-              onSeatParty={(partyId) =>
-                run(() => seatPartyAtTable(partyId, selected.id))
+              onUnassign={(guestId) =>
+                optimistic(
+                  (prev) => prev.filter((a) => a.guest_id !== guestId),
+                  () => unassignSeat(guestId)
+                )
               }
+              onSeatParty={(partyId) => handleSeatParty(partyId, selected)}
               onDragStart={beginPersonDrag}
               didDrag={() => didDragRef.current}
               onUpdate={(patch) => run(() => updateObject(selected.id, patch))}
-              onClear={() => run(() => clearTable(selected.id))}
+              onClear={() =>
+                optimistic(
+                  (prev) => prev.filter((a) => a.object_id !== selected.id),
+                  () => clearTable(selected.id)
+                )
+              }
               onDelete={() => {
                 setSelectedIds(new Set());
                 run(() => deleteObject(selected.id));
