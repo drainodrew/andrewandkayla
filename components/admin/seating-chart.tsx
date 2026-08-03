@@ -1547,33 +1547,49 @@ function TablePanel({
                 key={partyId}
                 className="border border-sage/20 rounded-lg px-2 py-1.5"
               >
-                <div className="flex items-center justify-between gap-2 mb-1">
-                  <span className="text-xs text-dark/50 truncate">
-                    {party.name}
-                  </span>
-                  {party.guests.length > 1 &&
-                    party.guests.length <= freeSeatCount && (
-                      <button
-                        type="button"
-                        onPointerDown={(e) =>
-                          onDragStart(e, {
-                            kind: "party",
-                            partyId,
-                            name: party.name,
-                            count: party.guests.length,
-                          })
-                        }
-                        onClick={() => {
-                          if (didDrag()) return;
-                          onSeatParty(partyId);
-                        }}
-                        disabled={isPending}
-                        className="text-xs text-deep-sage hover:text-pink shrink-0 transition-colors touch-none select-none cursor-grab"
-                      >
-                        Seat all {party.guests.length}
-                      </button>
-                    )}
-                </div>
+                {/* The whole party row is the primary action, not a small
+                    link at the end of it. Nearly every party sits together,
+                    so seating the group should be the easy click and picking
+                    off individuals the exception. */}
+                {(() => {
+                  const size = party.guests.length;
+                  const fits = size <= freeSeatCount;
+                  return (
+                    <button
+                      type="button"
+                      onPointerDown={(e) =>
+                        onDragStart(e, {
+                          kind: "party",
+                          partyId,
+                          name: party.name,
+                          count: size,
+                        })
+                      }
+                      onClick={() => {
+                        if (didDrag()) return;
+                        onSeatParty(partyId);
+                      }}
+                      disabled={isPending || !fits}
+                      title={
+                        fits
+                          ? `Seat all ${size} at this table`
+                          : `Only ${freeSeatCount} seat${freeSeatCount === 1 ? "" : "s"} free, this party needs ${size}`
+                      }
+                      className="w-full flex items-center justify-between gap-2 mb-1 px-1 py-0.5 rounded text-left hover:bg-sage/15 disabled:opacity-45 disabled:hover:bg-transparent transition-colors touch-none select-none cursor-grab"
+                    >
+                      <span className="text-xs text-dark/60 truncate font-medium">
+                        {party.name}
+                      </span>
+                      <span className="text-xs text-deep-sage shrink-0">
+                        {fits
+                          ? size > 1
+                            ? `Seat all ${size}`
+                            : "Seat"
+                          : `needs ${size}`}
+                      </span>
+                    </button>
+                  );
+                })()}
                 {party.guests.map((g) => (
                   <button
                     key={g.id}
