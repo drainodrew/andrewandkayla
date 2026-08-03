@@ -451,6 +451,12 @@ export function SeatingChart({
   useEffect(() => {
     if (!pendingDrag) return;
 
+    // Belt and braces: suppress selection document-wide for the duration of
+    // the drag. The pointerdown preventDefault handles the common path, but
+    // this also covers text the pointer sweeps across on its way to the plan.
+    const previousUserSelect = document.body.style.userSelect;
+    document.body.style.userSelect = "none";
+
     function onMove(e: PointerEvent) {
       const start = dragStartRef.current;
       if (!start) return;
@@ -516,6 +522,7 @@ export function SeatingChart({
       window.removeEventListener("pointermove", onMove);
       window.removeEventListener("pointerup", onUp);
       window.removeEventListener("pointercancel", onCancel);
+      document.body.style.userSelect = previousUserSelect;
     };
   }, [pendingDrag, localObjects, run]);
 
@@ -617,8 +624,19 @@ export function SeatingChart({
   }
 
   function beginPersonDrag(e: React.PointerEvent, payload: DragPayload) {
-    // Left button only, and don't fight text selection in inputs.
     if (e.button !== 0) return;
+
+    // Stop the browser from starting a text selection. Without this, pressing
+    // on a name and moving the pointer drags a selection highlight up through
+    // the whole panel, because that's what a mouse drag over text means by
+    // default. preventDefault here suppresses the compatibility mousedown
+    // that would begin it; the click event still fires, so click-to-seat is
+    // unaffected.
+    e.preventDefault();
+
+    // Clear anything already highlighted from a previous stray drag.
+    window.getSelection()?.removeAllRanges();
+
     dragStartRef.current = { x: e.clientX, y: e.clientY };
     didDragRef.current = false;
     setPendingDrag(payload);
@@ -1550,7 +1568,7 @@ function TablePanel({
                           onSeatParty(partyId);
                         }}
                         disabled={isPending}
-                        className="text-xs text-deep-sage hover:text-pink shrink-0 transition-colors touch-none cursor-grab"
+                        className="text-xs text-deep-sage hover:text-pink shrink-0 transition-colors touch-none select-none cursor-grab"
                       >
                         Seat all {party.guests.length}
                       </button>
@@ -1568,7 +1586,7 @@ function TablePanel({
                       onAssign(g);
                     }}
                     disabled={isPending || freeSeatCount === 0}
-                    className="w-full text-left px-2 py-1 rounded text-sm text-dark hover:bg-pink/15 disabled:opacity-40 disabled:hover:bg-transparent transition-colors touch-none cursor-grab"
+                    className="w-full text-left px-2 py-1 rounded text-sm text-dark hover:bg-pink/15 disabled:opacity-40 disabled:hover:bg-transparent transition-colors touch-none select-none cursor-grab"
                   >
                     {g.first_name} {g.last_name}
                   </button>
@@ -1773,7 +1791,7 @@ function UnseatedPanel({
                     count: party.guests.length,
                   })
                 }
-                className="text-xs text-dark/50 touch-none cursor-grab hover:text-deep-sage transition-colors"
+                className="text-xs text-dark/50 touch-none select-none cursor-grab hover:text-deep-sage transition-colors"
                 title={`Drag the whole party (${party.guests.length}) onto a table`}
               >
                 {party.name}
@@ -1784,7 +1802,7 @@ function UnseatedPanel({
                   onPointerDown={(e) =>
                     onDragStart(e, { kind: "guest", guest: g })
                   }
-                  className="text-sm text-dark pl-2 touch-none cursor-grab hover:bg-pink/10 rounded transition-colors"
+                  className="text-sm text-dark pl-2 touch-none select-none cursor-grab hover:bg-pink/10 rounded transition-colors"
                   title="Drag onto a seat or table"
                 >
                   {g.first_name} {g.last_name}
