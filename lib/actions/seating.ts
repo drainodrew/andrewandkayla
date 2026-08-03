@@ -22,6 +22,12 @@ import {
 
 const SEATING_PATH = "/admin/seating";
 
+/**
+ * Server-side ceiling, mirroring the floor_plan_objects check constraint.
+ * Named here so the two can't drift apart silently.
+ */
+const MAX_SEATS_PER_OBJECT = 24;
+
 export interface MutationResult {
   error?: string;
   history?: HistoryState;
@@ -321,8 +327,14 @@ export async function updateSeatCounts(
 ): Promise<MutationResult> {
   return mutate(async (supabase) => {
     if (ids.length === 0) return { error: "Nothing to update." };
-    if (!Number.isInteger(seatCount) || seatCount < 0 || seatCount > 12) {
-      return { error: "Seat count must be between 0 and 12." };
+    if (
+      !Number.isInteger(seatCount) ||
+      seatCount < 0 ||
+      seatCount > MAX_SEATS_PER_OBJECT
+    ) {
+      return {
+        error: `Seat count must be between 0 and ${MAX_SEATS_PER_OBJECT}.`,
+      };
     }
 
     // Same overflow rule as the single-table path: shrinking a table can't
@@ -399,9 +411,11 @@ export async function updateObject(
       if (
         !Number.isInteger(patch.seat_count) ||
         patch.seat_count < 0 ||
-        patch.seat_count > 12
+        patch.seat_count > MAX_SEATS_PER_OBJECT
       ) {
-        return { error: "Seat count must be between 0 and 12." };
+        return {
+          error: `Seat count must be between 0 and ${MAX_SEATS_PER_OBJECT}.`,
+        };
       }
 
       // Shrinking a table would orphan people in chairs that no longer exist.

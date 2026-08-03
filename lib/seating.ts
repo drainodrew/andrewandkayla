@@ -40,8 +40,12 @@ export const HEAD_TABLE_DEPTH_FT = 2.5;
 export const HEAD_TABLE_SEAT_PITCH_FT = 2;
 
 export const MIN_HEAD_TABLE_SEATS = 1;
-/** Matches the seat_count check constraint on floor_plan_objects. */
-export const MAX_HEAD_TABLE_SEATS = 12;
+/**
+ * Matches the seat_count check constraint on floor_plan_objects.
+ * Raised from 12 to 24 once head tables seated all four sides; a wedding
+ * party head table of 14+ is ordinary.
+ */
+export const MAX_HEAD_TABLE_SEATS = 24;
 
 /**
  * How a head table's seats are distributed around its perimeter.
