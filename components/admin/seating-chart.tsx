@@ -45,6 +45,7 @@ import {
   assignSeat,
   unassignSeat,
   seatPartyAtTable,
+  swapSeats,
   clearTable,
   type MutationResult,
 } from "@/lib/actions/seating";
@@ -481,6 +482,24 @@ export function SeatingChart({
     const free: number[] = [];
     for (let n = 1; n <= obj.seat_count; n++) if (!taken.has(n)) free.push(n);
     return free;
+  }
+
+  /**
+   * Swap two chairs at a table, or move someone onto an empty one.
+   * Applied locally first like every other seat change.
+   */
+  function handleSwapSeats(objectId: string, seatA: number, seatB: number) {
+    if (seatA === seatB) return;
+    optimistic(
+      (prev) =>
+        prev.map((a) => {
+          if (a.object_id !== objectId) return a;
+          if (a.seat_number === seatA) return { ...a, seat_number: seatB };
+          if (a.seat_number === seatB) return { ...a, seat_number: seatA };
+          return a;
+        }),
+      () => swapSeats(objectId, seatA, seatB)
+    );
   }
 
   function handleSeatParty(partyId: string, obj: FloorObject) {
@@ -1191,6 +1210,7 @@ export function SeatingChart({
               onSeatParty={(partyId) => handleSeatParty(partyId, selected)}
               onDragStart={beginPersonDrag}
               didDrag={() => didDragRef.current}
+              onSwapSeats={(a, b) => handleSwapSeats(selected.id, a, b)}
               onUpdate={(patch) => run(() => updateObject(selected.id, patch))}
               onClear={() =>
                 optimistic(
@@ -1403,6 +1423,7 @@ function TablePanel({
   onSeatParty,
   onDragStart,
   didDrag,
+  onSwapSeats,
   onUpdate,
   onClear,
   onDelete,
@@ -1422,6 +1443,7 @@ function TablePanel({
   onSeatParty: (partyId: string) => void;
   onDragStart: (e: React.PointerEvent, payload: DragPayload) => void;
   didDrag: () => boolean;
+  onSwapSeats: (seatA: number, seatB: number) => void;
   onUpdate: (patch: {
     label?: string;
     internal_name?: string | null;
@@ -1448,6 +1470,73 @@ function TablePanel({
     setSeatDraft(String(obj.seat_count));
     setSeatDraftError(null);
   }, [obj.id, obj.seat_count]);
+
+  // ---- reordering people between chairs -------------------------------
+  //
+  // Rows carry their seat number in a data attribute and the drop target is
+  // resolved with elementFromPoint, so the pointer can travel over any part
+  // of a row (name, party, the remove button) and still resolve correctly.
+  const [dragSeat, setDragSeat] = useState<number | null>(null);
+  const [overSeat, setOverSeat] = useState<number | null>(null);
+  const seatDragRef = useRef<{ seat: number; x: number; y: number } | null>(
+    null
+  );
+  const seatMovedRef = useRef(false);
+
+  function seatUnderPointer(x: number, y: number): number | null {
+    const el = document.elementFromPoint(x, y);
+    const row = el?.closest<HTMLElement>("[data-seat]");
+    if (!row) return null;
+    const n = Number(row.dataset.seat);
+    return Number.isInteger(n) ? n : null;
+  }
+
+  function beginSeatDrag(e: React.PointerEvent, seat: number) {
+    if (e.button !== 0) return;
+    e.preventDefault();
+    window.getSelection()?.removeAllRanges();
+    seatDragRef.current = { seat, x: e.clientX, y: e.clientY };
+    seatMovedRef.current = false;
+  }
+
+  // Bound unconditionally. Gating this on "a drag is in progress" was a
+  // chicken-and-egg bug: the listeners that START a drag were never attached,
+  // because no drag was in progress yet. The handlers no-op when idle, which
+  // costs nothing.
+  useEffect(() => {
+    function onMove(e: PointerEvent) {
+      const d = seatDragRef.current;
+      if (!d) return;
+      if (
+        !seatMovedRef.current &&
+        Math.hypot(e.clientX - d.x, e.clientY - d.y) < DRAG_THRESHOLD_PX
+      ) {
+        return;
+      }
+      seatMovedRef.current = true;
+      setDragSeat(d.seat);
+      setOverSeat(seatUnderPointer(e.clientX, e.clientY));
+    }
+
+    function onUp(e: PointerEvent) {
+      const d = seatDragRef.current;
+      seatDragRef.current = null;
+      const moved = seatMovedRef.current;
+      seatMovedRef.current = false;
+      setDragSeat(null);
+      setOverSeat(null);
+      if (!d || !moved) return;
+      const target = seatUnderPointer(e.clientX, e.clientY);
+      if (target !== null && target !== d.seat) onSwapSeats(d.seat, target);
+    }
+
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+    };
+  }, [onSwapSeats]);
 
   function commitSeatDraft() {
     const parsed = Number(seatDraft);
@@ -1632,6 +1721,9 @@ function TablePanel({
           <h3 className="text-sm font-medium text-deep-sage">Seats</h3>
           <span className="text-xs text-dark/50">
             {obj.seat_count - freeSeatCount}/{obj.seat_count} filled
+            {obj.seat_count - freeSeatCount > 1 && (
+              <span className="text-dark/35"> &middot; drag to reorder</span>
+            )}
           </span>
         </div>
         <div className="space-y-1">
@@ -1641,10 +1733,18 @@ function TablePanel({
             return (
               <div
                 key={n}
-                className={`flex items-center gap-2 px-2 py-1.5 rounded-lg border text-sm ${
-                  isTarget
-                    ? "border-pink bg-pink/10"
-                    : "border-transparent hover:bg-sage/5"
+                data-seat={n}
+                onPointerDown={
+                  occupant ? (e) => beginSeatDrag(e, n) : undefined
+                }
+                className={`flex items-center gap-2 px-2 py-1.5 rounded-lg border text-sm transition-colors ${
+                  overSeat === n && dragSeat !== null && dragSeat !== n
+                    ? "border-pink bg-pink/25"
+                    : isTarget
+                      ? "border-pink bg-pink/10"
+                      : "border-transparent hover:bg-sage/5"
+                } ${dragSeat === n ? "opacity-40" : ""} ${
+                  occupant ? "cursor-grab select-none touch-none" : ""
                 }`}
               >
                 <span className="w-5 text-xs text-dark/40 shrink-0">{n}</span>

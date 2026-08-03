@@ -647,6 +647,73 @@ export async function seatPartyAtTable(
   }, { revalidate: false });
 }
 
+/**
+ * Swap two chairs at one table, or move a guest onto an empty chair.
+ *
+ * Delegated to a Postgres function: the unique constraint on
+ * (object_id, seat_number) means the two updates have to happen inside one
+ * transaction or they collide mid-swap. Skips revalidation like the other
+ * seat actions, since the client applies it optimistically.
+ */
+export async function swapSeats(
+  objectId: string,
+  seatA: number,
+  seatB: number
+): Promise<MutationResult> {
+  return mutate(
+    async (supabase) => {
+      if (
+        !Number.isInteger(seatA) ||
+        !Number.isInteger(seatB) ||
+        seatA < 1 ||
+        seatB < 1
+      ) {
+        return { error: "Invalid seat numbers." };
+      }
+
+      const [{ data: object }, { data: occupants }] = await Promise.all([
+        supabase
+          .from("floor_plan_objects")
+          .select("label")
+          .eq("id", objectId)
+          .maybeSingle(),
+        supabase
+          .from("seat_assignments")
+          .select("seat_number, guests(first_name, last_name)")
+          .eq("object_id", objectId)
+          .in("seat_number", [seatA, seatB]),
+      ]);
+
+      const { error } = await supabase.rpc("swap_seats", {
+        p_object_id: objectId,
+        p_seat_a: seatA,
+        p_seat_b: seatB,
+      });
+
+      if (error) return { error: error.message };
+
+      // Name the people involved so the undo button reads usefully.
+      const names = (occupants ?? [])
+        .map((o) => {
+          const g = o.guests as unknown as {
+            first_name: string;
+            last_name: string;
+          } | null;
+          return g ? `${g.first_name} ${g.last_name}` : null;
+        })
+        .filter(Boolean);
+
+      const label =
+        names.length === 2
+          ? `Swap ${names[0]} and ${names[1]}`
+          : `Move seat at ${object?.label ?? "table"}`;
+
+      return { label };
+    },
+    { revalidate: false }
+  );
+}
+
 /** Empty a table without deleting it. */
 export async function clearTable(objectId: string): Promise<MutationResult> {
   return mutate(async (supabase) => {
