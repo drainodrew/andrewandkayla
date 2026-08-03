@@ -44,15 +44,46 @@ export const MIN_HEAD_TABLE_SEATS = 1;
 export const MAX_HEAD_TABLE_SEATS = 12;
 
 /**
+ * How a head table's seats are distributed around its perimeter.
+ *
+ * People sit on BOTH long sides and at the ends, not just the side facing the
+ * room. That changes the arithmetic a lot: 12 seats along one side needs a
+ * 24ft table, but 12 around the perimeter needs only 10ft, which is the
+ * difference between fitting in the tent and not.
+ *
+ * A 30"-deep table takes exactly one person at each end. Everyone else splits
+ * between the two long sides, with the odd one going to the front (the side
+ * facing the room) so the couple is never the short row.
+ *
+ * Two or fewer stays a sweetheart table: both on the front side, side by
+ * side, nobody with their back to the room.
+ */
+export function headTableSeatLayout(seatCount: number): {
+  front: number;
+  back: number;
+  ends: number;
+} {
+  if (seatCount <= 0) return { front: 0, back: 0, ends: 0 };
+  if (seatCount <= 2) return { front: seatCount, back: 0, ends: 0 };
+
+  // Below 4 there aren't enough people to justify burning two on the ends.
+  const ends = seatCount >= 4 ? 2 : 0;
+  const remaining = seatCount - ends;
+  const front = Math.ceil(remaining / 2);
+  return { front, back: remaining - front, ends };
+}
+
+/**
  * A head table's width is derived from its seat count, not set independently.
  *
- * Otherwise you get 12 people crammed along a fixed 8ft table, which renders
- * as overlapping seat markers and, worse, would be wrong if anyone measured
- * off the plan. Guests sit along one side only (facing the room), so the
- * table grows one pitch per seat.
+ * Otherwise people get crammed onto a fixed-width table, which renders as
+ * overlapping seat markers and would be wrong if anyone measured off the
+ * plan. Width is driven by the busier long side.
  */
 export function headTableWidthFor(seatCount: number): number {
-  return Math.max(4, seatCount * HEAD_TABLE_SEAT_PITCH_FT);
+  const { front, back } = headTableSeatLayout(seatCount);
+  const perSide = Math.max(front, back);
+  return Math.max(4, perSide * HEAD_TABLE_SEAT_PITCH_FT);
 }
 
 /** Default sweetheart table: just the two of you. */
@@ -118,8 +149,12 @@ export function roundSeatOffsets(
 }
 
 /**
- * Offsets for seats along one side of a rectangular head table (guests face
- * the room, so nobody is seated on the back edge).
+ * Offsets for seats around a rectangular head table: both long sides plus
+ * the two ends.
+ *
+ * Numbered as a walk around the perimeter, front-left to front-right, round
+ * the right end, back along the far side, then the left end. Reading seat
+ * numbers off the plan then matches walking around the table.
  */
 export function headTableSeatOffsets(
   seatCount: number,
@@ -127,14 +162,42 @@ export function headTableSeatOffsets(
   depthFt: number
 ): { x: number; y: number; angleDeg: number }[] {
   if (seatCount <= 0) return [];
-  const usable = widthFt - 1;
-  const step = seatCount > 1 ? usable / (seatCount - 1) : 0;
-  const startX = seatCount > 1 ? -usable / 2 : 0;
-  return Array.from({ length: seatCount }, (_, i) => ({
-    x: startX + step * i,
-    y: depthFt / 2 + 1.1,
-    angleDeg: 90,
-  }));
+
+  const { front, back, ends } = headTableSeatLayout(seatCount);
+  const offset = 1.1; // how far a chair sits off the table edge
+  const seats: { x: number; y: number; angleDeg: number }[] = [];
+
+  // Spread n seats evenly along the table's width, inset so the outermost
+  // chairs don't hang off the corners.
+  const alongWidth = (n: number) => {
+    if (n <= 0) return [];
+    const usable = Math.max(0, widthFt - 1);
+    if (n === 1) return [0];
+    const step = usable / (n - 1);
+    return Array.from({ length: n }, (_, i) => -usable / 2 + step * i);
+  };
+
+  // Front side (facing the room), left to right.
+  for (const x of alongWidth(front)) {
+    seats.push({ x, y: depthFt / 2 + offset, angleDeg: 90 });
+  }
+
+  // Right end.
+  if (ends > 0) {
+    seats.push({ x: widthFt / 2 + offset, y: 0, angleDeg: 0 });
+  }
+
+  // Back side, right to left so the numbering keeps circling.
+  for (const x of alongWidth(back).reverse()) {
+    seats.push({ x, y: -depthFt / 2 - offset, angleDeg: -90 });
+  }
+
+  // Left end.
+  if (ends > 1) {
+    seats.push({ x: -widthFt / 2 - offset, y: 0, angleDeg: 180 });
+  }
+
+  return seats;
 }
 
 export function seatOffsetsFor(

@@ -1306,6 +1306,35 @@ function TablePanel({
     [obj.id, obj.internal_name]
   );
 
+  // Typed seat count, kept as a string so the field can be empty mid-edit
+  // rather than snapping to 0 the moment you clear it to type "12".
+  const [seatDraft, setSeatDraft] = useState(String(obj.seat_count));
+  const [seatDraftError, setSeatDraftError] = useState<string | null>(null);
+  useEffect(() => {
+    setSeatDraft(String(obj.seat_count));
+    setSeatDraftError(null);
+  }, [obj.id, obj.seat_count]);
+
+  function commitSeatDraft() {
+    const parsed = Number(seatDraft);
+    if (!Number.isInteger(parsed)) {
+      setSeatDraft(String(obj.seat_count));
+      setSeatDraftError(null);
+      return;
+    }
+    if (parsed < MIN_HEAD_TABLE_SEATS || parsed > MAX_HEAD_TABLE_SEATS) {
+      // Say what the limit is instead of silently clamping, so a typed 20
+      // doesn't quietly become 12.
+      setSeatDraftError(
+        `${MIN_HEAD_TABLE_SEATS}-${MAX_HEAD_TABLE_SEATS} only`
+      );
+      setSeatDraft(String(obj.seat_count));
+      return;
+    }
+    setSeatDraftError(null);
+    if (parsed !== obj.seat_count) onUpdate({ seat_count: parsed });
+  }
+
   const freeSeatCount =
     obj.seat_count -
     assignments.filter((a) => a.seat_number !== null).length;
@@ -1413,9 +1442,32 @@ function TablePanel({
               >
                 &minus;
               </button>
-              <span className="w-8 text-center text-sm font-medium text-dark">
-                {obj.seat_count}
-              </span>
+              <input
+                type="number"
+                min={MIN_HEAD_TABLE_SEATS}
+                max={MAX_HEAD_TABLE_SEATS}
+                value={seatDraft}
+                onChange={(e) => setSeatDraft(e.target.value)}
+                onFocus={(e) => e.currentTarget.select()}
+                onBlur={commitSeatDraft}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    e.currentTarget.blur();
+                  }
+                  if (e.key === "Escape") {
+                    setSeatDraft(String(obj.seat_count));
+                    e.currentTarget.blur();
+                  }
+                }}
+                aria-label="Number of seats"
+                className="w-12 px-1 py-1 text-center text-sm font-medium text-dark rounded-lg border border-sage/50 focus:outline-none focus:ring-2 focus:ring-pink focus:border-pink"
+              />
+              {seatDraftError && (
+                <span className="text-xs text-orange-700">
+                  {seatDraftError}
+                </span>
+              )}
               <button
                 type="button"
                 onClick={() =>
