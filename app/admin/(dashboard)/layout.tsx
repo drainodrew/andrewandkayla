@@ -43,7 +43,7 @@ export default async function AdminDashboardLayout({
   }
 
   return (
-    <div className="flex min-h-screen bg-cream print:block print:min-h-0">
+    <div className="flex min-h-screen bg-cream print:block print:min-h-0 print:bg-white">
       {/* `contents` so this wrapper adds nothing to the flex layout on screen
           and exists only to carry print:hidden. The sidebar renders both an
           <aside> and a fixed hamburger <button>, so hiding it by element name

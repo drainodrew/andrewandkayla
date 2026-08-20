@@ -341,7 +341,7 @@ function TablePage({
         </p>
       </header>
 
-      <div className="mx-auto w-[42%] max-w-[3in] mb-1">
+      <div className="mx-auto w-[34%] max-w-[2.4in] mb-1">
         <TentLocator objects={objects} currentId={obj.id} />
         <p className="text-center text-[9px] text-dark/40 mt-0.5">
           This table, shaded, in the {TENT_WIDTH_FT}&prime; &times;{" "}
@@ -349,7 +349,7 @@ function TablePage({
         </p>
       </div>
 
-      <svg viewBox={layout.viewBox} className="w-full h-auto max-h-[4.6in]">
+      <svg viewBox={layout.viewBox} className="w-full h-auto max-h-[3.9in]">
         {round ? (
           <circle
             r={round.tableR}
@@ -470,9 +470,10 @@ export function SeatingPrint({
             Andrew &amp; Kayla &middot; August 29, 2026 &middot; Belle Meade
             Mansion
           </p>
+          {/* Built as one string rather than interleaved JSX expressions and
+              text, which was dropping the space and printing "25tables". */}
           <p className="text-xs text-dark/40 mt-1">
-            {guests.length} guests &middot; {ordered.length} tables &middot; by
-            table, then by last name
+            {`${guests.length} guests · ${ordered.length} tables · by table, then by last name`}
           </p>
         </header>
 

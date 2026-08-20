@@ -151,12 +151,16 @@ const PRINT_CSS = `
 @media print {
   @page { size: letter portrait; margin: 0.45in; }
 
-  /* The dashboard shell is screen furniture. The sidebar itself is hidden by
-     the print:hidden wrapper in the (dashboard) layout, which also catches
-     its fixed hamburger button. */
+  /* The dashboard shell is screen furniture. The sidebar and the site nav and
+     footer are hidden by print:hidden wrappers in their layouts, which also
+     catches the sidebar's fixed hamburger button. */
   .screen-only { display: none !important; }
 
-  html, body { background: #fff !important; }
+  /* Every ancestor, not just body: the admin shell paints cream on a wrapper
+     div, so whitening body alone still printed a cream page. Scoped to the
+     ancestors deliberately, since a blanket rule on descendants would also
+     strip the shaded table on the mini map. */
+  html, body, main, .print-root { background: #fff !important; }
 
   .print-root { width: 100%; }
   .print-page { padding: 0; margin: 0; border: none; max-width: none; }

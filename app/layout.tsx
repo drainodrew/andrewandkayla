@@ -44,9 +44,18 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col bg-background text-foreground font-body">
         <LanguageProvider>
-          <Navigation />
+          {/* Site chrome is screen furniture. Printing any page (the seating
+              chart, the schedule) should give you the content, not a nav bar
+              and a footer stamped onto every sheet. The nav also carries a
+              border-b, which is what read as a stray line across the top of
+              the printed seating chart. */}
+          <div className="print:hidden">
+            <Navigation />
+          </div>
           <main className="flex-1">{children}</main>
-          <Footer />
+          <div className="print:hidden">
+            <Footer />
+          </div>
         </LanguageProvider>
         <Analytics />
       </body>
