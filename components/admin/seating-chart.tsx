@@ -8,6 +8,7 @@ import {
   useCallback,
   useTransition,
 } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   TENT_WIDTH_FT,
@@ -28,10 +29,18 @@ import {
   snapAndClamp,
   SNAP_FT,
   findCrowdedPairs,
+  guestMatches,
+  searchPlacements,
+  compareFloorObjects,
+  FIT_VIEW,
+  zoomView,
+  clampView,
+  type ViewBox,
   type FloorObject,
   type SeatedGuest,
   type AttendingGuest,
 } from "@/lib/seating";
+import { SeatingMobileList } from "@/components/admin/seating-mobile-list";
 import {
   addRoundTable,
   addHeadTable,
@@ -52,8 +61,6 @@ import {
 import { undoSeating, redoSeating } from "@/lib/actions/seating-history";
 import type { HistoryState } from "@/lib/seating-history-core";
 
-/** Padding around the tent in the viewBox so the outline isn't clipped. */
-const PAD_FT = 3;
 
 /**
  * Autosave indicator state. Every edit writes to Supabase immediately, so
@@ -113,6 +120,39 @@ export function SeatingChart({
   const [saveStatus, setSaveStatus] = useState<SaveStatus>("idle");
   const [expanded, setExpanded] = useState(false);
 
+  /**
+   * Which face the small-screen layout shows. Defaults to the list because
+   * that's the one you can actually use on a phone; the plan is a tab away.
+   * Ignored at xl and up, where both are on screen at once.
+   */
+  const [mobileView, setMobileView] = useState<"list" | "plan">("list");
+
+  /** Pan and zoom for the floor plan. */
+  const [view, setView] = useState<ViewBox>(FIT_VIEW);
+  /**
+   * Mirror of `view` for the gesture handlers.
+   *
+   * Lifting one finger of a pinch re-arms the gesture as a pan, and that has
+   * to start from where the view actually IS. Reading the `view` state there
+   * would read the value captured when the handler was created, which is one
+   * or more setView calls behind by then, and the plan would jump.
+   */
+  const viewRef = useRef<ViewBox>(FIT_VIEW);
+  // Written in an effect rather than during render: mutating a ref while
+  // rendering isn't safe under concurrent React. Being one commit behind
+  // costs nothing here, because gestures only read it from pointer handlers,
+  // which fire well after paint.
+  useEffect(() => {
+    viewRef.current = view;
+  }, [view]);
+
+  /**
+   * Briefly highlight a guest's row after jumping to them from search, so you
+   * can see which of eight names at the table you were looking for.
+   */
+  const [flashGuestId, setFlashGuestId] = useState<string | null>(null);
+  const flashTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
   // History arrives from the server on every revalidate, but drag saves
   // deliberately skip revalidation, so we keep a local copy the actions can
   // update directly.
@@ -169,6 +209,26 @@ export function SeatingChart({
     () => new Map(guests.map((g) => [g.id, g])),
     [guests]
   );
+
+  const objectById = useMemo(
+    () => new Map(localObjects.map((o) => [o.id, o])),
+    [localObjects]
+  );
+
+  useEffect(() => {
+    return () => {
+      if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    };
+  }, []);
+
+  /** Jump to whichever table a guest is sitting at and flag their row. */
+  const revealGuest = useCallback((objectId: string, guestId: string) => {
+    setSelectedIds(new Set([objectId]));
+    setTargetSeat(null);
+    setFlashGuestId(guestId);
+    if (flashTimerRef.current) clearTimeout(flashTimerRef.current);
+    flashTimerRef.current = setTimeout(() => setFlashGuestId(null), 2500);
+  }, []);
 
   const assignmentByGuest = useMemo(
     () => new Map(localAssignments.map((a) => [a.guest_id, a])),
@@ -374,6 +434,154 @@ export function SeatingChart({
       );
     }
   }
+
+  // ---- pan and zoom --------------------------------------------------
+  //
+  // Only ever started from the canvas background: a press on a table calls
+  // stopPropagation, so dragging a table never doubles as a pan. Pointers are
+  // tracked in a ref keyed by pointerId, which is also what makes the handlers
+  // ignore the moves belonging to an in-flight table drag.
+
+  const viewPointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const gestureRef = useRef<{
+    mode: "pan" | "pinch";
+    startView: ViewBox;
+    /** Feet per screen pixel, captured before the view starts changing. */
+    ftPerPx: number;
+    originX: number;
+    originY: number;
+    focusFt: { x: number; y: number };
+    startDistance: number;
+  } | null>(null);
+
+  /** (Re)arm a gesture from whatever pointers are currently down. */
+  const beginGesture = useCallback(() => {
+    const points = [...viewPointersRef.current.values()];
+    if (points.length === 0) {
+      gestureRef.current = null;
+      return;
+    }
+
+    const svg = svgRef.current;
+    const ctm = svg?.getScreenCTM();
+    // ctm.a is screen pixels per user unit, and a user unit here is one foot.
+    const ftPerPx = ctm && ctm.a !== 0 ? 1 / ctm.a : 0;
+
+    const originX =
+      points.length >= 2 ? (points[0].x + points[1].x) / 2 : points[0].x;
+    const originY =
+      points.length >= 2 ? (points[0].y + points[1].y) / 2 : points[0].y;
+
+    gestureRef.current = {
+      mode: points.length >= 2 ? "pinch" : "pan",
+      startView: viewRef.current,
+      ftPerPx,
+      originX,
+      originY,
+      focusFt: clientToFeet(originX, originY),
+      startDistance:
+        points.length >= 2
+          ? Math.hypot(points[0].x - points[1].x, points[0].y - points[1].y)
+          : 0,
+    };
+  }, []);
+
+  function handleCanvasPointerDown(e: React.PointerEvent) {
+    setSelectedIds(new Set());
+    setTargetSeat(null);
+    viewPointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    beginGesture();
+  }
+
+  function handleCanvasPointerMove(e: React.PointerEvent) {
+    const pointers = viewPointersRef.current;
+    // Not a pointer we're tracking: it belongs to a table drag.
+    if (!pointers.has(e.pointerId)) return;
+    pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    const gesture = gestureRef.current;
+    if (!gesture || gesture.ftPerPx === 0) return;
+
+    const points = [...pointers.values()];
+
+    if (gesture.mode === "pinch" && points.length >= 2) {
+      const distance = Math.hypot(
+        points[0].x - points[1].x,
+        points[0].y - points[1].y
+      );
+      if (gesture.startDistance === 0 || distance === 0) return;
+      const scale = distance / gesture.startDistance;
+      setView(
+        clampView(
+          zoomView(gesture.startView, gesture.startView.w / scale, gesture.focusFt)
+        )
+      );
+      return;
+    }
+
+    if (gesture.mode === "pan") {
+      // The room follows the finger, so the viewBox moves the other way.
+      const dxFt = (e.clientX - gesture.originX) * gesture.ftPerPx;
+      const dyFt = (e.clientY - gesture.originY) * gesture.ftPerPx;
+      setView(
+        clampView({
+          ...gesture.startView,
+          x: gesture.startView.x - dxFt,
+          y: gesture.startView.y - dyFt,
+        })
+      );
+    }
+  }
+
+  function endCanvasPointer(e: React.PointerEvent) {
+    viewPointersRef.current.delete(e.pointerId);
+    // Lifting one finger of a pinch should leave the other one panning, not
+    // freeze the canvas, so re-arm from what's left.
+    beginGesture();
+  }
+
+  /** Zoom by a factor about the middle of the canvas. */
+  const zoomByFactor = useCallback((factor: number) => {
+    setView((current) =>
+      clampView(
+        zoomView(current, current.w / factor, {
+          x: current.x + current.w / 2,
+          y: current.y + current.h / 2,
+        })
+      )
+    );
+  }, []);
+
+  const atFitZoom = view.w >= FIT_VIEW.w - 0.01;
+
+  /**
+   * Trackpad pinch and ctrl+wheel zoom. Bound natively rather than with
+   * onWheel because React's wheel listener is passive, and preventDefault is
+   * what stops the browser zooming the whole page instead.
+   */
+  useEffect(() => {
+    const svg = svgRef.current;
+    if (!svg) return;
+
+    function onWheel(e: WheelEvent) {
+      if (!e.ctrlKey && !e.metaKey) return; // plain wheel still scrolls the page
+      e.preventDefault();
+      const element = svgRef.current;
+      const ctm = element?.getScreenCTM();
+      setView((current) => {
+        const focus =
+          ctm && ctm.a !== 0
+            ? new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.inverse())
+            : { x: current.x + current.w / 2, y: current.y + current.h / 2 };
+        return clampView(
+          zoomView(current, current.w * Math.exp(e.deltaY * 0.002), focus)
+        );
+      });
+    }
+
+    svg.addEventListener("wheel", onWheel, { passive: false });
+    return () => svg.removeEventListener("wheel", onWheel);
+  }, []);
 
   // ---- action helpers ------------------------------------------------
 
@@ -794,6 +1002,30 @@ export function SeatingChart({
   }
 
 
+  /**
+   * Seat a guest in one specific chair.
+   *
+   * Doubles as the "move them here" path: assignSeat upserts on guest_id and
+   * withGuestSeated drops their previous row locally, so someone already
+   * sitting elsewhere moves rather than being double-booked.
+   */
+  function handleSeatGuestAt(
+    guestId: string,
+    objectId: string,
+    seatNumber: number
+  ) {
+    const occupant = occupantBySeat.get(`${objectId}:${seatNumber}`);
+    if (occupant && occupant.id !== guestId) {
+      // Checked locally too, so the seat never visibly fills and snaps back.
+      setError("That seat is already taken.");
+      return;
+    }
+    optimistic(
+      (prev) => withGuestSeated(prev, guestId, objectId, seatNumber),
+      () => assignSeat(guestId, objectId, seatNumber)
+    );
+  }
+
   function handleAssign(guest: AttendingGuest) {
     if (!selected) return;
     // From the ref, so back-to-back clicks each get the next chair.
@@ -816,9 +1048,10 @@ export function SeatingChart({
     const headers = ["Table", "Group", "Seat", "Guest", "Party"];
     const rows: string[][] = [];
 
-    const ordered = [...localObjects].sort(
-      (a, b) => a.sort_order - b.sort_order || a.label.localeCompare(b.label)
-    );
+    // Same natural order as the printed chart: head table, then Table 1..25.
+    // sort_order drifts as tables are added and removed, and localeCompare
+    // puts Table 10 ahead of Table 9.
+    const ordered = [...localObjects].sort(compareFloorObjects);
 
     for (const obj of ordered) {
       for (let n = 1; n <= obj.seat_count; n++) {
@@ -889,13 +1122,21 @@ export function SeatingChart({
               rearrange
             </p>
           </div>
-          <button
-            type="button"
-            onClick={exportCsv}
-            className="px-5 py-2.5 rounded-lg bg-pink text-dark text-sm font-medium hover:bg-pink/80 focus:outline-none focus:ring-2 focus:ring-pink focus:ring-offset-2 focus:ring-offset-cream transition-colors"
-          >
-            Export CSV
-          </button>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={exportCsv}
+              className="px-5 py-2.5 rounded-lg border border-sage/50 text-dark/80 text-sm font-medium hover:bg-sage/10 transition-colors"
+            >
+              Export CSV
+            </button>
+            <Link
+              href="/admin/seating/print"
+              className="px-5 py-2.5 rounded-lg bg-pink text-dark text-sm font-medium hover:bg-pink/80 focus:outline-none focus:ring-2 focus:ring-pink focus:ring-offset-2 focus:ring-offset-cream transition-colors"
+            >
+              Print chart
+            </Link>
+          </div>
         </div>
       )}
 
@@ -909,6 +1150,33 @@ export function SeatingChart({
         />
         <SaveIndicator status={saveStatus} history={historyState} />
       </div>
+
+      {/* Small screens pick one view at a time. Above xl both are on screen,
+          so the switch is hidden and neither side is ever hidden by it. */}
+      {!expanded && (
+        <div
+          role="tablist"
+          aria-label="Seating view"
+          className="xl:hidden flex gap-1 p-1 mb-4 rounded-lg bg-sage/15 border border-sage/30"
+        >
+          {(["list", "plan"] as const).map((tab) => (
+            <button
+              key={tab}
+              type="button"
+              role="tab"
+              aria-selected={mobileView === tab}
+              onClick={() => setMobileView(tab)}
+              className={`flex-1 px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                mobileView === tab
+                  ? "bg-white text-deep-sage shadow-sm"
+                  : "text-dark/55 hover:text-deep-sage"
+              }`}
+            >
+              {tab === "list" ? "Tables & guests" : "Floor plan"}
+            </button>
+          ))}
+        </div>
+      )}
 
       {/* Drag ghost. Fixed to the viewport and pointer-events-none so it never
           swallows the pointermove that's driving the drag. */}
@@ -978,25 +1246,49 @@ export function SeatingChart({
 
       <div className="flex flex-col xl:flex-row gap-6">
         {/* Floor plan */}
-        <div className="flex-1 min-w-0">
+        <div
+          className={`flex-1 min-w-0 ${
+            expanded || mobileView === "plan" ? "" : "hidden xl:block"
+          }`}
+        >
           <div className="bg-white rounded-xl border border-sage/30 p-3 relative">
-            <button
-              type="button"
-              onClick={() => setExpanded((v) => !v)}
-              title={
-                expanded ? "Exit full screen (Esc)" : "Expand to full window"
-              }
-              aria-label={
-                expanded ? "Exit full screen" : "Expand to full window"
-              }
-              className="absolute top-4 right-4 z-10 p-1.5 rounded-lg bg-white/90 border border-sage/40 text-dark/60 hover:text-deep-sage hover:border-sage transition-colors"
-            >
-              <svg
-                className="w-4 h-4"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth={2}
-                stroke="currentColor"
+            {/* Zoom controls. Buttons as well as pinch, because a trackpad
+                pinch is awkward and a mouse has no pinch at all. */}
+            <div className="absolute top-4 right-4 z-10 flex items-center gap-1">
+              <CanvasButton
+                onClick={() => zoomByFactor(1 / 1.4)}
+                disabled={atFitZoom}
+                label="Zoom out"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M15 12H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </CanvasButton>
+              <CanvasButton onClick={() => zoomByFactor(1.4)} label="Zoom in">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M12 9v6m3-3H9m12 0a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </CanvasButton>
+              <CanvasButton
+                onClick={() => setView(FIT_VIEW)}
+                disabled={atFitZoom}
+                label="Fit the whole tent"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"
+                />
+              </CanvasButton>
+              <CanvasButton
+                onClick={() => setExpanded((v) => !v)}
+                label={
+                  expanded ? "Exit full screen (Esc)" : "Expand to full window"
+                }
               >
                 {expanded ? (
                   <path
@@ -1008,26 +1300,25 @@ export function SeatingChart({
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
-                    d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"
+                    d="M4.5 4.5h6m-6 0v6m0-6l6.75 6.75M19.5 19.5h-6m6 0v-6m0 6l-6.75-6.75"
                   />
                 )}
-              </svg>
-            </button>
+              </CanvasButton>
+            </div>
             <svg
               ref={svgRef}
-              viewBox={`${-PAD_FT} ${-PAD_FT} ${TENT_WIDTH_FT + PAD_FT * 2} ${
-                TENT_DEPTH_FT + PAD_FT * 2
-              }`}
+              viewBox={`${view.x} ${view.y} ${view.w} ${view.h}`}
               // In expanded mode the plan should fill the viewport height.
               // preserveAspectRatio (default xMidYMid meet) keeps the tent
               // centered and undistorted inside whatever box it gets.
               className={`w-full h-auto touch-none select-none ${
                 expanded ? "max-h-[calc(100vh-11rem)]" : ""
-              }`}
-              onPointerDown={() => {
-                setSelectedIds(new Set());
-                setTargetSeat(null);
-              }}
+              } ${atFitZoom ? "" : "cursor-move"}`}
+              onPointerDown={handleCanvasPointerDown}
+              onPointerMove={handleCanvasPointerMove}
+              onPointerUp={endCanvasPointer}
+              onPointerCancel={endCanvasPointer}
+              onPointerLeave={endCanvasPointer}
             >
               {/* 5ft grid */}
               <defs>
@@ -1140,7 +1431,11 @@ export function SeatingChart({
         </div>
 
         {/* Side panel */}
-        <div className="w-full xl:w-[26rem] shrink-0">
+        <div
+          className={`w-full xl:w-[26rem] shrink-0 ${
+            expanded || mobileView === "plan" ? "" : "hidden xl:block"
+          }`}
+        >
           {selectedObjects.length > 1 ? (
             <MultiSelectPanel
               objects={selectedObjects}
@@ -1196,6 +1491,10 @@ export function SeatingChart({
               occupantBySeat={occupantBySeat}
               guestById={guestById}
               unseated={unseated}
+              guests={guests}
+              assignmentByGuest={assignmentByGuest}
+              objectById={objectById}
+              flashGuestId={flashGuestId}
               search={search}
               onSearch={setSearch}
               targetSeat={targetSeat}
@@ -1219,20 +1518,62 @@ export function SeatingChart({
                 )
               }
               onDelete={() => {
+                // The keyboard path has always confirmed this; the button had
+                // not, which is how a table of eight went away in one click.
+                const seated = (assignmentsByObject.get(selected.id) ?? []).length;
+                if (
+                  seated > 0 &&
+                  !window.confirm(
+                    `Delete ${selected.label}? ${seated} ${seated === 1 ? "person" : "people"} seated there will go back to unseated.`
+                  )
+                ) {
+                  return;
+                }
                 setSelectedIds(new Set());
                 run(() => deleteObject(selected.id));
               }}
               isPending={isPending}
             />
           ) : (
-            <UnseatedPanel
+            <GuestPanel
               unseated={unseated}
+              guests={guests}
+              assignmentByGuest={assignmentByGuest}
+              objectById={objectById}
               search={search}
               onSearch={setSearch}
               onDragStart={beginPersonDrag}
+              onReveal={revealGuest}
             />
           )}
         </div>
+      </div>
+
+      {/* Phone and tablet: the same chart as a tap-driven list. Hidden at xl,
+          where the plan and its panel are both already on screen. */}
+      <div
+        className={
+          !expanded && mobileView === "list" ? "xl:hidden" : "hidden"
+        }
+      >
+        <SeatingMobileList
+          objects={localObjects}
+          assignmentsByObject={assignmentsByObject}
+          occupantBySeat={occupantBySeat}
+          guestById={guestById}
+          guests={guests}
+          unseated={unseated}
+          assignmentByGuest={assignmentByGuest}
+          onSeatGuest={handleSeatGuestAt}
+          onSeatParty={handleSeatParty}
+          onUnassign={(guestId) =>
+            optimistic(
+              (prev) => prev.filter((a) => a.guest_id !== guestId),
+              () => unassignSeat(guestId)
+            )
+          }
+          isPending={isPending}
+        />
       </div>
     </div>
   );
@@ -1414,6 +1755,10 @@ function TablePanel({
   occupantBySeat,
   guestById,
   unseated,
+  guests,
+  assignmentByGuest,
+  objectById,
+  flashGuestId,
   search,
   onSearch,
   targetSeat,
@@ -1434,6 +1779,10 @@ function TablePanel({
   occupantBySeat: Map<string, AttendingGuest>;
   guestById: Map<string, AttendingGuest>;
   unseated: AttendingGuest[];
+  guests: AttendingGuest[];
+  assignmentByGuest: Map<string, SeatedGuest>;
+  objectById: Map<string, FloorObject>;
+  flashGuestId: string | null;
   search: string;
   onSearch: (v: string) => void;
   targetSeat: number | null;
@@ -1564,13 +1913,10 @@ function TablePanel({
 
   const unnumbered = assignments.filter((a) => a.seat_number === null);
 
-  const filteredUnseated = search.trim()
-    ? unseated.filter((g) =>
-        `${g.first_name} ${g.last_name} ${g.party_name}`
-          .toLowerCase()
-          .includes(search.toLowerCase().trim())
-      )
-    : unseated;
+  const filteredUnseated = useMemo(
+    () => unseated.filter((g) => guestMatches(g, search)),
+    [unseated, search]
+  );
 
   // Group the unseated list by party, since that's how you actually seat.
   const parties = useMemo(() => {
@@ -1584,6 +1930,20 @@ function TablePanel({
       a[1].name.localeCompare(b[1].name)
     );
   }, [filteredUnseated]);
+
+  /**
+   * Search matches who are already sitting somewhere else.
+   *
+   * Only shown once you've typed. This panel used to offer the unseated and
+   * nothing else, so moving someone from Table 3 to Table 9 meant unseating
+   * them first and then finding them again in a list of 200.
+   */
+  const seatedElsewhere = useMemo(() => {
+    if (!search.trim()) return [];
+    return searchPlacements(guests, assignmentByGuest, objectById, search).filter(
+      (p) => p.object !== null && p.object.id !== obj.id
+    );
+  }, [guests, assignmentByGuest, objectById, search, obj.id]);
 
   return (
     <div className="bg-white rounded-xl border border-sage/30 p-4 space-y-4">
@@ -1730,6 +2090,9 @@ function TablePanel({
           {Array.from({ length: obj.seat_count }, (_, i) => i + 1).map((n) => {
             const occupant = occupantBySeat.get(`${obj.id}:${n}`);
             const isTarget = targetSeat === n;
+            // Set when you jumped here from a search result, so you can spot
+            // which of eight names you were actually looking for.
+            const isFlashed = Boolean(occupant && occupant.id === flashGuestId);
             return (
               <div
                 key={n}
@@ -1740,9 +2103,11 @@ function TablePanel({
                 className={`flex items-center gap-2 px-2 py-1.5 rounded-lg border text-sm transition-colors ${
                   overSeat === n && dragSeat !== null && dragSeat !== n
                     ? "border-pink bg-pink/25"
-                    : isTarget
-                      ? "border-pink bg-pink/10"
-                      : "border-transparent hover:bg-sage/5"
+                    : isFlashed
+                      ? "border-deep-sage bg-sage/25"
+                      : isTarget
+                        ? "border-pink bg-pink/10"
+                        : "border-transparent hover:bg-sage/5"
                 } ${dragSeat === n ? "opacity-40" : ""} ${
                   occupant ? "cursor-grab select-none touch-none" : ""
                 }`}
@@ -1816,16 +2181,15 @@ function TablePanel({
         <input
           value={search}
           onChange={(e) => onSearch(e.target.value)}
-          placeholder="Search unseated guests..."
+          type="search"
+          placeholder="Search anyone, seated or not..."
           className="w-full px-3 py-2 mb-2 rounded-lg border border-sage/50 text-dark text-sm placeholder:text-dark/40 focus:outline-none focus:ring-2 focus:ring-pink focus:border-pink"
         />
 
         <div className="max-h-80 overflow-y-auto space-y-2 pr-1">
-          {parties.length === 0 ? (
+          {parties.length === 0 && seatedElsewhere.length === 0 ? (
             <p className="text-sm text-dark/40 py-2">
-              {search.trim()
-                ? "No unseated guests match."
-                : "Everyone is seated."}
+              {search.trim() ? "Nobody matches that." : "Everyone is seated."}
             </p>
           ) : (
             parties.map(([partyId, party]) => (
@@ -1895,6 +2259,36 @@ function TablePanel({
                 ))}
               </div>
             ))
+          )}
+
+          {seatedElsewhere.length > 0 && (
+            <div className="border border-sage/20 rounded-lg px-2 py-1.5">
+              <p className="text-xs text-dark/55 font-medium px-1 pb-1">
+                Seated elsewhere &middot; click to move here
+              </p>
+              {seatedElsewhere.slice(0, 15).map(({ guest, object, seatNumber }) => (
+                <button
+                  key={guest.id}
+                  type="button"
+                  onClick={() => onAssign(guest)}
+                  disabled={isPending || freeSeatCount === 0}
+                  title={
+                    freeSeatCount === 0
+                      ? `${obj.label} is full`
+                      : `Move ${guest.first_name} ${guest.last_name} to ${obj.label}`
+                  }
+                  className="w-full flex items-center justify-between gap-2 px-2 py-1 rounded text-left text-sm text-dark hover:bg-pink/15 disabled:opacity-40 disabled:hover:bg-transparent transition-colors"
+                >
+                  <span className="truncate">
+                    {guest.first_name} {guest.last_name}
+                  </span>
+                  <span className="text-xs text-dark/45 shrink-0">
+                    {object?.label}
+                    {seatNumber ? ` · seat ${seatNumber}` : ""}
+                  </span>
+                </button>
+              ))}
+            </div>
           )}
         </div>
       </div>
@@ -2029,58 +2423,129 @@ function MultiSelectPanel({
   );
 }
 
-/** Panel shown when nothing is selected: who still needs a seat. */
-function UnseatedPanel({
+/**
+ * Panel shown when no table is selected.
+ *
+ * Two jobs, and which one you get depends on whether the box is empty. Empty,
+ * it's the unseated list: who still needs a chair, grouped by party, draggable
+ * onto the plan. Typed in, it answers "where is this person sitting?" across
+ * everyone, which nothing on the page could do before: once a guest had a
+ * chair they disappeared from the only search there was.
+ */
+function GuestPanel({
   unseated,
+  guests,
+  assignmentByGuest,
+  objectById,
   search,
   onSearch,
   onDragStart,
+  onReveal,
 }: {
   unseated: AttendingGuest[];
+  guests: AttendingGuest[];
+  assignmentByGuest: Map<string, SeatedGuest>;
+  objectById: Map<string, FloorObject>;
   search: string;
   onSearch: (v: string) => void;
   onDragStart: (e: React.PointerEvent, payload: DragPayload) => void;
+  onReveal: (objectId: string, guestId: string) => void;
 }) {
-  const filtered = search.trim()
-    ? unseated.filter((g) =>
-        `${g.first_name} ${g.last_name} ${g.party_name}`
-          .toLowerCase()
-          .includes(search.toLowerCase().trim())
-      )
-    : unseated;
+  const isSearching = search.trim().length > 0;
+
+  const results = useMemo(
+    () => searchPlacements(guests, assignmentByGuest, objectById, search),
+    [guests, assignmentByGuest, objectById, search]
+  );
 
   const parties = useMemo(() => {
     const map = new Map<string, { name: string; guests: AttendingGuest[] }>();
-    for (const g of filtered) {
+    for (const g of unseated) {
       const entry = map.get(g.party_id) ?? { name: g.party_name, guests: [] };
       entry.guests.push(g);
       map.set(g.party_id, entry);
     }
     return [...map.entries()].sort((a, b) => a[1].name.localeCompare(b[1].name));
-  }, [filtered]);
+  }, [unseated]);
+
+  const seatedCount = results.filter((r) => r.object).length;
 
   return (
     <div className="bg-white rounded-xl border border-sage/30 p-4">
       <h3 className="text-sm font-medium text-deep-sage mb-1">
-        Not seated yet ({unseated.length})
+        {isSearching ? `Search (${results.length})` : `Not seated yet (${unseated.length})`}
       </h3>
       <p className="text-xs text-dark/50 mb-3">
-        Drag a name onto a seat, or a party name onto a table. Or click a
-        table to seat people from its panel.
+        {isSearching
+          ? `${seatedCount} seated, ${results.length - seatedCount} not. Click a seated name to jump to their table.`
+          : "Drag a name onto a seat, or a party name onto a table. Or click a table to seat people from its panel."}
       </p>
       <input
         value={search}
         onChange={(e) => onSearch(e.target.value)}
-        placeholder="Search..."
+        type="search"
+        placeholder="Search anyone, seated or not..."
         className="w-full px-3 py-2 mb-3 rounded-lg border border-sage/50 text-dark text-sm placeholder:text-dark/40 focus:outline-none focus:ring-2 focus:ring-pink focus:border-pink"
       />
+
       <div className="max-h-[32rem] overflow-y-auto space-y-2 pr-1">
-        {parties.length === 0 ? (
-          <p className="text-sm text-dark/40">
-            {unseated.length === 0
-              ? "Everyone has a seat."
-              : "No guests match that search."}
-          </p>
+        {isSearching ? (
+          results.length === 0 ? (
+            <p className="text-sm text-dark/40">Nobody matches that.</p>
+          ) : (
+            results.map(({ guest, object, seatNumber }) =>
+              object ? (
+                <button
+                  key={guest.id}
+                  type="button"
+                  onClick={() => onReveal(object.id, guest.id)}
+                  className="w-full flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg text-left hover:bg-sage/15 transition-colors"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-sm text-dark truncate">
+                      {guest.first_name} {guest.last_name}
+                    </span>
+                    <span className="block text-xs text-dark/40 truncate">
+                      {guest.party_name}
+                    </span>
+                  </span>
+                  <span className="text-xs shrink-0 text-right">
+                    <span className="block text-deep-sage font-medium">
+                      {object.label}
+                    </span>
+                    <span className="block text-dark/40">
+                      {seatNumber ? `seat ${seatNumber}` : "chair TBD"}
+                    </span>
+                  </span>
+                </button>
+              ) : (
+                // Still draggable: an unseated search hit is something you
+                // probably want to put somewhere right now.
+                <div
+                  key={guest.id}
+                  onPointerDown={(e) =>
+                    onDragStart(e, { kind: "guest", guest })
+                  }
+                  title="Drag onto a seat or table"
+                  className="flex items-center justify-between gap-2 px-2 py-1.5 rounded-lg touch-none select-none cursor-grab hover:bg-pink/10 transition-colors"
+                >
+                  <span className="min-w-0">
+                    <span className="block text-sm text-dark truncate">
+                      {guest.first_name} {guest.last_name}
+                    </span>
+                    <span className="block text-xs text-dark/40 truncate">
+                      {guest.party_name}
+                    </span>
+                  </span>
+                  <span className="text-xs text-orange-700 shrink-0">
+                    Not seated
+                  </span>
+                </div>
+              )
+            )
+          )
+        ) : parties.length === 0 ? (
+          <p className="text-sm text-dark/40">Everyone has a seat.</p>
         ) : (
           parties.map(([partyId, party]) => (
             <div key={partyId}>
@@ -2305,6 +2770,40 @@ function SmallButton({
       }`}
     >
       {children}
+    </button>
+  );
+}
+
+/** Small icon button floating over the floor plan. */
+function CanvasButton({
+  onClick,
+  disabled,
+  label,
+  children,
+}: {
+  onClick: () => void;
+  disabled?: boolean;
+  label: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      title={label}
+      aria-label={label}
+      className="p-2 rounded-lg bg-white/90 border border-sage/40 text-dark/60 hover:text-deep-sage hover:border-sage disabled:opacity-35 disabled:hover:text-dark/60 disabled:hover:border-sage/40 transition-colors"
+    >
+      <svg
+        className="w-4 h-4"
+        fill="none"
+        viewBox="0 0 24 24"
+        strokeWidth={2}
+        stroke="currentColor"
+      >
+        {children}
+      </svg>
     </button>
   );
 }

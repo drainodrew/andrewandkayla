@@ -97,6 +97,81 @@ export const HEAD_TABLE_WIDTH_FT = headTableWidthFor(DEFAULT_HEAD_TABLE_SEATS);
 /** Drag snapping. Half a foot is fine enough to look deliberate. */
 export const SNAP_FT = 0.5;
 
+/** Padding around the tent in the SVG viewBox so the outline isn't clipped. */
+export const PAD_FT = 3;
+
+/** A window onto the tent, in feet. This is literally an SVG viewBox. */
+export interface ViewBox {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+/** The whole tent, which is also the most zoomed-OUT the plan ever goes. */
+export const FIT_VIEW: ViewBox = {
+  x: -PAD_FT,
+  y: -PAD_FT,
+  w: TENT_WIDTH_FT + PAD_FT * 2,
+  h: TENT_DEPTH_FT + PAD_FT * 2,
+};
+
+/**
+ * Narrowest the viewBox may get, in feet. About two tables across, close
+ * enough to read seat initials on a phone without letting you zoom in until
+ * you have lost all sense of which end of the room you're at.
+ */
+export const MIN_VIEW_WIDTH_FT = 14;
+
+/** Locked, so zooming can never distort the room. */
+const VIEW_ASPECT = FIT_VIEW.h / FIT_VIEW.w;
+
+/**
+ * Zoom the viewBox to `width` feet across, keeping `focus` (a point in feet)
+ * under the same spot on screen.
+ *
+ * Works from the focus point's fractional position inside the current viewBox
+ * rather than from screen pixels. That matters because preserveAspectRatio
+ * letterboxes whenever the SVG element's aspect doesn't match the tent's, so
+ * pixel math would drift the focus point on most screen sizes. Fractions of
+ * the viewBox are unaffected by letterboxing as long as the aspect stays
+ * fixed, which VIEW_ASPECT guarantees.
+ */
+export function zoomView(
+  view: ViewBox,
+  width: number,
+  focus: { x: number; y: number }
+): ViewBox {
+  const w = Math.min(FIT_VIEW.w, Math.max(MIN_VIEW_WIDTH_FT, width));
+  const h = w * VIEW_ASPECT;
+  const fracX = (focus.x - view.x) / view.w;
+  const fracY = (focus.y - view.y) / view.h;
+  return { x: focus.x - fracX * w, y: focus.y - fracY * h, w, h };
+}
+
+/**
+ * Keep the tent somewhere on screen.
+ *
+ * Half a viewport of overscroll each way, so you can drag a corner table into
+ * the middle of the screen to work on it, but you can't pan off into empty
+ * space and wonder where the room went.
+ */
+export function clampView(view: ViewBox): ViewBox {
+  const slackX = view.w / 2;
+  const slackY = view.h / 2;
+  return {
+    ...view,
+    x: Math.min(
+      FIT_VIEW.x + FIT_VIEW.w - view.w + slackX,
+      Math.max(FIT_VIEW.x - slackX, view.x)
+    ),
+    y: Math.min(
+      FIT_VIEW.y + FIT_VIEW.h - view.h + slackY,
+      Math.max(FIT_VIEW.y - slackY, view.y)
+    ),
+  };
+}
+
 export type FloorObjectKind = "round_table" | "head_table";
 
 export interface FloorObject {
@@ -127,6 +202,122 @@ export interface AttendingGuest {
   last_name: string;
   party_id: string;
   party_name: string;
+}
+
+/**
+ * Order tables the way a person counts them: head table first, then Table 1,
+ * 2, 3 ... 10, 11.
+ *
+ * Not by sort_order, which is assigned at creation and drifts as tables are
+ * added and deleted (the live plan runs 1, 3, 5, 4, 2 ...), and not by
+ * localeCompare, which puts "Table 10" before "Table 9" because it compares
+ * "1" against "9" character by character. Both produce a printed booklet you
+ * have to shuffle by hand.
+ */
+export function compareFloorObjects(a: FloorObject, b: FloorObject): number {
+  // The head table leads the booklet regardless of what it's called.
+  const rank = (o: FloorObject) => (o.kind === "head_table" ? 0 : 1);
+  if (rank(a) !== rank(b)) return rank(a) - rank(b);
+
+  const numberOf = (label: string) => {
+    const match = /(\d+)/.exec(label);
+    return match ? Number(match[1]) : null;
+  };
+  const na = numberOf(a.label);
+  const nb = numberOf(b.label);
+
+  // Numbered tables sort numerically; anything unnumbered ("Kids table")
+  // falls to the back alphabetically rather than jumbling in among them.
+  if (na !== null && nb !== null && na !== nb) return na - nb;
+  if (na !== null && nb === null) return -1;
+  if (na === null && nb !== null) return 1;
+
+  return a.label.localeCompare(b.label);
+}
+
+/** Surname-first ordering, the way a guest list is read. */
+export function compareGuestsByLastName(
+  a: { first_name: string; last_name: string },
+  b: { first_name: string; last_name: string }
+): number {
+  return `${a.last_name} ${a.first_name}`.localeCompare(
+    `${b.last_name} ${b.first_name}`
+  );
+}
+
+/**
+ * Does a guest match what someone typed into a search box?
+ *
+ * Tokenised and AND-ed rather than one substring test, so "manuel andrew"
+ * finds Andrew Manuel. A plain `includes` only matches the order the name
+ * happens to be stored in, which is not the order people type it.
+ *
+ * `extra` widens the haystack for the caller, e.g. with the table a guest is
+ * sitting at, so searching "home depot" turns up everyone at the table
+ * labelled that.
+ */
+export function guestMatches(
+  guest: { first_name: string; last_name: string; party_name: string },
+  query: string,
+  extra = ""
+): boolean {
+  const tokens = query.toLowerCase().split(/\s+/).filter(Boolean);
+  if (tokens.length === 0) return true;
+  const haystack =
+    `${guest.first_name} ${guest.last_name} ${guest.party_name} ${extra}`.toLowerCase();
+  return tokens.every((token) => haystack.includes(token));
+}
+
+/** Where a guest is sitting. `object` null means they aren't seated yet. */
+export interface GuestPlacement {
+  guest: AttendingGuest;
+  object: FloorObject | null;
+  seatNumber: number | null;
+}
+
+/**
+ * Every attending guest matching a query, seated or not, with where they sit.
+ *
+ * This is the "where is Aunt Carol sitting?" lookup. The unseated list alone
+ * can't answer it, which is the whole gap: once someone has a chair they
+ * vanish from the only search box on the page.
+ *
+ * Sorted seated-first because that's the question being asked; an unseated
+ * person is already findable in the list below.
+ */
+export function searchPlacements(
+  guests: AttendingGuest[],
+  assignmentByGuest: Map<string, SeatedGuest>,
+  objectById: Map<string, FloorObject>,
+  query: string
+): GuestPlacement[] {
+  if (!query.trim()) return [];
+
+  const results: GuestPlacement[] = [];
+  for (const guest of guests) {
+    const assignment = assignmentByGuest.get(guest.id);
+    const object = assignment ? (objectById.get(assignment.object_id) ?? null) : null;
+    // Table name and group name count as part of the guest's searchable text
+    // only when they actually have a table.
+    const extra = object ? `${object.label} ${object.internal_name ?? ""}` : "";
+    if (!guestMatches(guest, query, extra)) continue;
+    results.push({
+      guest,
+      object,
+      seatNumber: assignment?.seat_number ?? null,
+    });
+  }
+
+  return results.sort((a, b) => {
+    if (Boolean(a.object) !== Boolean(b.object)) return a.object ? -1 : 1;
+    if (a.object && b.object && a.object.id !== b.object.id) {
+      return (
+        a.object.sort_order - b.object.sort_order ||
+        a.object.label.localeCompare(b.object.label)
+      );
+    }
+    return (a.seatNumber ?? 0) - (b.seatNumber ?? 0);
+  });
 }
 
 /**

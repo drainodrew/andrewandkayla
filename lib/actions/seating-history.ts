@@ -88,7 +88,15 @@ async function step(
     supabase,
     target.state as FloorPlanState
   );
-  if (restore.error) return { error: restore.error };
+  if (restore.error) {
+    // Raw Postgres text ("DELETE requires a WHERE clause") told Kayla nothing
+    // when undo was broken, so it read as the button doing nothing at all.
+    // Say what it means for her, and keep the original for the server log.
+    console.error(`Seating ${direction} failed to restore:`, restore.error);
+    return {
+      error: `Couldn't ${direction} that change, so nothing was altered. Tell Andrew: ${restore.error}`,
+    };
+  }
 
   // The pointer moves but no snapshot is added: undo/redo navigate history,
   // they don't create it. Only a real edit appends (and truncates the redo

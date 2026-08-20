@@ -43,10 +43,20 @@ export default async function AdminDashboardLayout({
   }
 
   return (
-    <div className="flex min-h-screen bg-cream">
-      <AdminSidebar email={user.email} />
-      {/* p-4 + pt-16 on mobile to clear the fixed hamburger button; p-8 on sm+ */}
-      <div className="flex-1 p-4 pt-16 sm:p-8 sm:pt-8 overflow-auto">{children}</div>
+    <div className="flex min-h-screen bg-cream print:block print:min-h-0">
+      {/* `contents` so this wrapper adds nothing to the flex layout on screen
+          and exists only to carry print:hidden. The sidebar renders both an
+          <aside> and a fixed hamburger <button>, so hiding it by element name
+          in the print stylesheet would miss the button and leave a menu icon
+          stamped on every printed page. */}
+      <div className="contents print:hidden">
+        <AdminSidebar email={user.email} />
+      </div>
+      {/* p-4 + pt-16 on mobile to clear the fixed hamburger button; p-8 on sm+.
+          No padding in print: the @page margin is the paper's margin. */}
+      <div className="flex-1 p-4 pt-16 sm:p-8 sm:pt-8 overflow-auto print:p-0 print:overflow-visible">
+        {children}
+      </div>
     </div>
   );
 }
